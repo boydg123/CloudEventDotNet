@@ -3,6 +3,9 @@ using Microsoft.Extensions.Logging;
 
 namespace CloudEventDotNet.Redis;
 
+/// <summary>
+/// Redis∂©‘ƒ µœ÷ <see cref="ICloudEventSubscriber"/>.
+/// </summary>
 internal class RedisCloudEventSubscriber : ICloudEventSubscriber
 {
     private readonly string _pubSubName;

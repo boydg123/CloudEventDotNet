@@ -10,7 +10,7 @@ public static class CloudEventsServiceCollectionExtensions
 {
 
     /// <summary>
-    /// Register CloudEvents metadata and handlers
+    /// 注册CloudEvents元数据和处理程序
     /// </summary>
     /// <param name="services">Service collection</param>
     /// <param name="defaultPubSubName">The default PubSub name</param>

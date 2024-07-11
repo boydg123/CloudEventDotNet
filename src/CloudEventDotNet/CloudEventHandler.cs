@@ -2,7 +2,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace CloudEventDotNet;
-
+/// <summary>
+/// CloudEvent´¦ÀíÆ÷
+/// </summary>
 internal class CloudEventHandler
 {
     private readonly HandleCloudEventDelegate _process;

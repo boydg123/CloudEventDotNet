@@ -8,11 +8,11 @@ public static class KafkaPubSubBuilderExtensions
     /// <summary>
     /// Add a kafka pubsub
     /// </summary>
-    /// <param name="builder">The builder to configure pubsub</param>
-    /// <param name="name">The name of this pubsub</param>
-    /// <param name="configurePublish">An action to configure publiser.</param>
-    /// <param name="configureSubscribe">An action to configure subscriber.</param>
-    /// <returns>The configured pubsub builder.</returns>
+    /// <param name="builder">配置pubsub的生成器</param>
+    /// <param name="name">pubsub名称</param>
+    /// <param name="configurePublish">配置发布者的方法.</param>
+    /// <param name="configureSubscribe">配置订阅者的方法.</param>
+    /// <returns>PubSub构造器.</returns>
     public static PubSubBuilder AddKafkaPubSub(
         this PubSubBuilder builder,
         string name,

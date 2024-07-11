@@ -1,15 +1,15 @@
 namespace CloudEventDotNet;
 
 /// <summary>
-/// Represents a publisher of CloudEvents.
+/// CloudEvents的发布者。
 /// </summary>
 public interface ICloudEventPubSub
 {
     /// <summary>
-    /// Publish a CloudEvent with registered metadata.
+    /// 使用注册的元数据发布CloudEvent
     /// </summary>
-    /// <typeparam name="TData">The data type of the CloudEvent, must registered with <see cref="CloudEventAttribute"/></typeparam>
-    /// <param name="data">The data of the CloudEvent</param>
+    /// <typeparam name="TData">CloudEvent的数据类型，必须标记为 <see cref="CloudEventAttribute"/></typeparam>
+    /// <param name="data">CloudEvent数据</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
     Task PublishAsync<TData>(TData data);
 }
