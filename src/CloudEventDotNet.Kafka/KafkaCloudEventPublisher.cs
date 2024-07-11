@@ -5,9 +5,12 @@ using Microsoft.Extensions.Logging;
 
 namespace CloudEventDotNet;
 
+/// <summary>
+/// CloudEvent Kafka 发布者
+/// </summary>
 internal sealed class KafkaCloudEventPublisher : ICloudEventPublisher
 {
-    private readonly IProducer<byte[], byte[]> _producer;
+    private readonly IProducer<byte[], byte[]> _producer; // Kafka producer
     private readonly KafkaProducerTelemetry _telemetry;
 
     public KafkaCloudEventPublisher(
@@ -29,6 +32,7 @@ internal sealed class KafkaCloudEventPublisher : ICloudEventPublisher
             Value = JSON.SerializeToUtf8Bytes(cloudEvent)
         };
 
+        // 生产消息
         DeliveryResult<byte[], byte[]> result = await _producer.ProduceAsync(topic, message).ConfigureAwait(false);
         _telemetry.OnMessageProduced(result, _producer.Name);
     }

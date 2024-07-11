@@ -1,7 +1,7 @@
 ﻿namespace CloudEventDotNet;
 
 /// <summary>
-/// CloudEvents metadata.
+/// CloudEvents元数据.
 /// </summary>
 /// <param name="PubSubName"></param>
 /// <param name="Topic"></param>

@@ -5,6 +5,9 @@ using StackExchange.Redis;
 
 namespace CloudEventDotNet.Redis;
 
+/// <summary>
+/// Redis CloudEvent 发布者
+/// </summary>
 internal sealed class RedisCloudEventPublisher : ICloudEventPublisher
 {
     private readonly ILogger<RedisCloudEventPublisher> _logger;
@@ -20,7 +23,13 @@ internal sealed class RedisCloudEventPublisher : ICloudEventPublisher
         _database = _multiplexer.GetDatabase(_options.Database);
     }
 
-
+    /// <summary>
+    /// 发布消息
+    /// </summary>
+    /// <typeparam name="TData"></typeparam>
+    /// <param name="topic"></param>
+    /// <param name="cloudEvent"></param>
+    /// <returns></returns>
     public async Task PublishAsync<TData>(string topic, CloudEvent<TData> cloudEvent)
     {
         byte[] data = JSON.SerializeToUtf8Bytes(cloudEvent);

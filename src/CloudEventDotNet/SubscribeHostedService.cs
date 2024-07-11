@@ -5,7 +5,7 @@ using Microsoft.Extensions.Options;
 namespace CloudEventDotNet;
 
 /// <summary>
-/// A hosted service to pull CloudEvents from subscribed topics
+/// 从订阅的主题中拉取CloudEvents的宿主服务
 /// </summary>
 public class SubscribeHostedService : IHostedService
 {
@@ -26,14 +26,23 @@ public class SubscribeHostedService : IHostedService
         _logger = logger;
     }
 
+    /// <summary>
+    /// 启动
+    /// </summary>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Starting subscribers");
-        var tasks = new List<Task>();
         await Task.WhenAll(_subscribers.Select(s => s.StartAsync()));
         _logger.LogInformation("Started subscribers");
     }
 
+    /// <summary>
+    /// 停止
+    /// </summary>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Stoping subscribers");

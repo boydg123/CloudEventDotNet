@@ -5,10 +5,17 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace CloudEventDotNet;
 
+/// <summary>
+/// CloudEvent处理器委托
+/// </summary>
+/// <param name="serviceProvider"></param>
+/// <param name="event"></param>
+/// <param name="token"></param>
+/// <returns></returns>
 internal delegate Task HandleCloudEventDelegate(IServiceProvider serviceProvider, CloudEvent @event, CancellationToken token);
 
 /// <summary>
-/// A registry of CloudEvent metadata and handlers
+/// CloudEvent元数据和处理程序的注册表
 /// </summary>
 public sealed class Registry
 {
@@ -42,6 +49,11 @@ public sealed class Registry
         return this;
     }
 
+    /// <summary>
+    /// 添加元数据
+    /// </summary>
+    /// <param name="eventDataType"></param>
+    /// <param name="attribute"></param>
     internal void RegisterMetadata(Type eventDataType, CloudEventAttribute attribute)
     {
         var metadata = new CloudEventMetadata(
@@ -53,20 +65,36 @@ public sealed class Registry
         _metadata.TryAdd(eventDataType, metadata);
     }
 
+    /// <summary>
+    /// 获取元数据
+    /// </summary>
+    /// <param name="eventDataType"></param>
+    /// <returns></returns>
     internal CloudEventMetadata GetMetadata(Type eventDataType)
     {
         return _metadata[eventDataType];
     }
 
+    /// <summary>
+    /// 获取处理程序
+    /// </summary>
+    /// <param name="metadata"></param>
+    /// <param name="handler"></param>
+    /// <returns></returns>
     internal bool TryGetHandler(CloudEventMetadata metadata, [NotNullWhen(true)] out CloudEventHandler? handler)
     {
         return _handlers.TryGetValue(metadata, out handler);
     }
-
+    /// <summary>
+    /// 注册处理程序
+    /// </summary>
+    /// <typeparam name="TData"></typeparam>
+    /// <param name="metadata"></param>
     internal void RegisterHandler<TData>(CloudEventMetadata metadata)
     {
         _handlerDelegates.TryAdd(metadata, Handle);
 
+        // 执行处理程序
         static Task Handle(IServiceProvider serviceProvider, CloudEvent @event, CancellationToken token)
         {
             var typedEvent = new CloudEvent<TData>(
@@ -84,7 +112,7 @@ public sealed class Registry
     }
 
     /// <summary>
-    /// Get topics subscribed by specified pubsub
+    /// 获取指定pubsub订阅的主题
     /// </summary>
     /// <param name="pubSubName">The pubsub name</param>
     /// <returns></returns>

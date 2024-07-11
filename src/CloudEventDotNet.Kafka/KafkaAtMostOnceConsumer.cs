@@ -3,14 +3,17 @@ using Microsoft.Extensions.Logging;
 
 namespace CloudEventDotNet.Kafka;
 
+/// <summary>
+/// Kafka 最多一次消费者
+/// </summary>
 internal sealed class KafkaAtMostOnceConsumer : ICloudEventSubscriber
 {
-    private readonly IConsumer<byte[], byte[]> _consumer;
-    private readonly KafkaWorkItemContext _workItemContext;
-    private readonly string[] _topics;
-    private readonly KafkaMessageChannel _channel;
-    private readonly KafkaConsumerTelemetry _telemetry;
-    private readonly CancellationTokenSource _stopTokenSource = new();
+    private readonly IConsumer<byte[], byte[]> _consumer; // Kafka 消费者
+    private readonly KafkaWorkItemContext _workItemContext; // 消息处理上下文
+    private readonly string[] _topics; // 订阅主题
+    private readonly KafkaMessageChannel _channel; // 消息通道
+    private readonly KafkaConsumerTelemetry _telemetry; // 消费者性能跟踪
+    private readonly CancellationTokenSource _stopTokenSource = new(); 
 
     public KafkaAtMostOnceConsumer(
         string pubSubName,
@@ -20,12 +23,12 @@ internal sealed class KafkaAtMostOnceConsumer : ICloudEventSubscriber
     {
         _telemetry = new KafkaConsumerTelemetry(pubSubName, loggerFactory);
         _consumer = new ConsumerBuilder<byte[], byte[]>(options.ConsumerConfig)
-            .SetErrorHandler((_, e) => _telemetry.OnConsumerError(e))
-            .SetPartitionsAssignedHandler((c, partitions) => _telemetry.OnPartitionsAssigned(partitions))
-            .SetPartitionsLostHandler((c, partitions) => _telemetry.OnPartitionsLost(partitions))
-            .SetPartitionsRevokedHandler((c, partitions) => _telemetry.OnPartitionsRevoked(partitions))
-            .SetLogHandler((_, log) => _telemetry.OnConsumerLog(log))
-            .SetOffsetsCommittedHandler((_, offsets) => _telemetry.OnConsumerOffsetsCommited(offsets))
+            .SetErrorHandler((_, e) => _telemetry.OnConsumerError(e)) // 错误处理
+            .SetPartitionsAssignedHandler((c, partitions) => _telemetry.OnPartitionsAssigned(partitions)) // 分区分配
+            .SetPartitionsLostHandler((c, partitions) => _telemetry.OnPartitionsLost(partitions)) // 分区丢失
+            .SetPartitionsRevokedHandler((c, partitions) => _telemetry.OnPartitionsRevoked(partitions)) // 分区撤销
+            .SetLogHandler((_, log) => _telemetry.OnConsumerLog(log)) // 日志处理
+            .SetOffsetsCommittedHandler((_, offsets) => _telemetry.OnConsumerOffsetsCommited(offsets)) // 偏移提交处理
         .Build();
 
         var producerConfig = new ProducerConfig()
@@ -56,6 +59,10 @@ internal sealed class KafkaAtMostOnceConsumer : ICloudEventSubscriber
     }
 
     private Task _consumeLoop = default!;
+    /// <summary>
+    /// 启动消费者
+    /// </summary>
+    /// <returns></returns>
     public Task StartAsync()
     {
         if (_topics.Any())
@@ -65,7 +72,10 @@ internal sealed class KafkaAtMostOnceConsumer : ICloudEventSubscriber
         }
         return Task.CompletedTask;
     }
-
+    /// <summary>
+    /// 停止消费者
+    /// </summary>
+    /// <returns></returns>
     public async Task StopAsync()
     {
         if (_topics.Any())
@@ -82,6 +92,9 @@ internal sealed class KafkaAtMostOnceConsumer : ICloudEventSubscriber
         }
     }
 
+    /// <summary>
+    /// 消费循环
+    /// </summary>
     private void ConsumeLoop()
     {
         _telemetry.OnConsumeLoopStarted();

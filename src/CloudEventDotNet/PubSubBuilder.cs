@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace CloudEventDotNet;
 
 /// <summary>
-/// A builder for configuring pubsub
+/// 配置PubSub的生成器
 /// </summary>
 public class PubSubBuilder
 {
@@ -14,12 +14,12 @@ public class PubSubBuilder
     private readonly string _defaultSource;
 
     /// <summary>
-    /// PubSub builder
+    /// PubSub 生成器
     /// </summary>
-    /// <param name="services">Service collection</param>
-    /// <param name="defaultPubSubName">The default PubSub name</param>
-    /// <param name="defaultTopic">The default topic</param>
-    /// <param name="defaultSource">The default source</param>
+    /// <param name="services">服务收集器</param>
+    /// <param name="defaultPubSubName">PubSub默认名称</param>
+    /// <param name="defaultTopic">默认主题</param>
+    /// <param name="defaultSource">默认源</param>
     public PubSubBuilder(IServiceCollection services, string defaultPubSubName, string defaultTopic, string defaultSource)
     {
         Services = services;
@@ -33,18 +33,17 @@ public class PubSubBuilder
     }
 
     /// <summary>
-    /// Gets an <see cref="IServiceProvider"/> which can be used to resolve services
-    /// from the dependency injection container.
+    /// 获取一个 <see cref="IServiceProvider"/>，可用于从依赖注入容器解析服务。
     /// </summary>
     public IServiceCollection Services { get; }
 
     /// <summary>
-    /// Load cloudevents metadata from specifed assemblies.
+    /// 从指定的程序集加载 cloudevents 元数据。
     /// </summary>
-    /// <param name="assemblies">Assemblies to scan</param>
-    /// <returns>PubSub builder</returns>
-    /// <exception cref="ArgumentException">No assemblies found to scan</exception>
-    /// <exception cref="InvalidOperationException">CloudEvent handler registered with unknown CloudEvent</exception>
+    /// <param name="assemblies">程序集列表</param>
+    /// <returns>PubSub生成器</returns>
+    /// <exception cref="ArgumentException">未找到任何程序集</exception>
+    /// <exception cref="InvalidOperationException">cloudevents 元数据格式错误</exception>
     public PubSubBuilder Load(params Assembly[] assemblies)
     {
         if (!assemblies.Any())
@@ -53,7 +52,8 @@ public class PubSubBuilder
         }
 
         var registry = new Registry(_defaultPubSubName, _defaultTopic, _defaultSource);
-        foreach (var type in assemblies.SelectMany(a => a.DefinedTypes))
+        var defindTypes = assemblies.SelectMany(a => a.DefinedTypes);
+        foreach (var type in defindTypes)
         {
             var typeInfo = type.GetTypeInfo();
             if (typeInfo.IsAbstract || typeInfo.IsInterface || typeInfo.IsGenericTypeDefinition || typeInfo.ContainsGenericParameters)
@@ -91,7 +91,7 @@ public class PubSubBuilder
             }
         }
         Services.AddSingleton((sp) => registry.Build(sp));
-        // registry.Debug();
+        //registry.Debug();
         return this;
     }
 }

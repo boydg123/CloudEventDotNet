@@ -4,13 +4,16 @@ using Microsoft.Extensions.Logging;
 
 namespace CloudEventDotNet.Kafka;
 
+/// <summary>
+/// Kafka消息通道
+/// </summary>
 internal class KafkaMessageChannel
 {
-    private readonly Channel<KafkaMessageWorkItem> _channel;
-    private readonly CancellationTokenSource _stopTokenSource = new();
-    private readonly KafkaMessageChannelContext _channelContext;
-    private readonly KafkaWorkItemContext _workItemContext;
-    private readonly KafkaMessageChannelTelemetry _telemetry;
+    private readonly Channel<KafkaMessageWorkItem> _channel; //用于存储 Kafka 消息工作项的通道
+    private readonly CancellationTokenSource _stopTokenSource = new(); //用于停止消息通道的 CancellationTokenSource
+    private readonly KafkaMessageChannelContext _channelContext; //消息通道上下文
+    private readonly KafkaWorkItemContext _workItemContext; //工作项上下文
+    private readonly KafkaMessageChannelTelemetry _telemetry; 
 
     public KafkaMessageChannel(
         KafkaSubscribeOptions options,
@@ -20,6 +23,7 @@ internal class KafkaMessageChannel
     {
         if (options.RunningWorkItemLimit > 0)
         {
+            // 创建有界(有容量)通道
             _channel = Channel.CreateBounded<KafkaMessageWorkItem>(new BoundedChannelOptions(options.RunningWorkItemLimit)
             {
                 SingleReader = true,
@@ -29,6 +33,7 @@ internal class KafkaMessageChannel
         }
         else
         {
+            // 创建无界(无容量)通道 - 可能会耗尽内存资源
             _channel = Channel.CreateUnbounded<KafkaMessageWorkItem>(new UnboundedChannelOptions
             {
                 SingleReader = true,
@@ -47,12 +52,21 @@ internal class KafkaMessageChannel
     }
 
     public bool IsActive { get; }
+
+    /// <summary>
+    /// 停止写入
+    /// </summary>
+    /// <returns></returns>
     public Task StopAsync()
     {
         _stopTokenSource.Cancel();
         return Reader.StopAsync();
     }
 
+    /// <summary>
+    /// 写入消息到Channel
+    /// </summary>
+    /// <param name="message"></param>
     public void DispatchMessage(ConsumeResult<byte[], byte[]> message)
     {
         var workItem = new KafkaMessageWorkItem(

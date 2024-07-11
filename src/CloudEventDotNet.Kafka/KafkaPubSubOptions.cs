@@ -3,33 +3,33 @@ using Confluent.Kafka;
 namespace CloudEventDotNet;
 
 /// <summary>
-/// Options for Kafka publisher
+/// Kafka发布者配置
 /// </summary>
 public class KafkaPublishOptions
 {
     /// <summary>
-    /// Config for Kafka producer.
+    /// Kafka生产者配置.
     /// </summary>
     public ProducerConfig ProducerConfig { get; set; } = new ProducerConfig();
 }
 
 /// <summary>
-/// Options for Kafka subscriber
+/// Kafka订阅者配置
 /// </summary>
 public class KafkaSubscribeOptions
 {
     /// <summary>
-    /// Config for Kafka consumer.
+    /// Kafka消费者配置.
     /// </summary>
     public ConsumerConfig ConsumerConfig { get; set; } = new ConsumerConfig();
 
     /// <summary>
-    /// Delivery guarantee, defaults to AtMostOnce delivery.
+    /// 消息处理保证. 默认是AtMostOnce
     /// </summary>
     public DeliveryGuarantee DeliveryGuarantee { get; set; } = DeliveryGuarantee.AtMostOnce;
 
     /// <summary>
-    /// The limit of unprocessed CloudEvents in local process queue.
+    /// 本地进程队列中未处理的CloudEvents的限制.默认1024
     /// </summary>
     public int RunningWorkItemLimit { get; set; } = 1024;
 }

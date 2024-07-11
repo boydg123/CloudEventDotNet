@@ -1,5 +1,3 @@
-using Microsoft.VisualBasic;
-
 namespace CloudEventDotNet.Diagnostics.Aggregators;
 
 public record struct TagList(
@@ -14,12 +12,18 @@ public record struct TagList(
 {
     public static readonly TagList Empty = new();
 
+    /// <summary>
+    /// 将TagList转换为KeyValuePair数组
+    /// </summary>
+    /// <returns></returns>
     public KeyValuePair<string, object?>[] ToArray()
     {
+        // 使用模式匹配 (switch) 来检查每个字段是否为null
+        // 根据匹配结果创建适当大小的KeyValuePair数组
         return this switch
         {
             (null, _, _, _, _, _, _, _) => Array.Empty<KeyValuePair<string, object?>>(),
-            (_, _, null, _, _, _, _, _) => new[] { new KeyValuePair<string, object?>(Name1!, Value1) },
+            (_, _, null, _, _, _, _, _) => [new KeyValuePair<string, object?>(Name1!, Value1)],
             (_, _, _, _, null, _, _, _) => new[]
             {
                 new KeyValuePair<string, object?>(Name1!, Value1),
@@ -40,5 +44,4 @@ public record struct TagList(
             },
         };
     }
-
 };
