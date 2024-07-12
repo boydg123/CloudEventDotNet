@@ -95,7 +95,8 @@ internal sealed class KafkaAtLeastOnceConsumer : ICloudEventSubscriber
             try
             {
                 ConsumeResult<byte[], byte[]> consumeResult = _consumer.Consume(_stopTokenSource.Token);
-                if (consumeResult == null)
+                //检查是否到达了分区的末尾。如果到达了分区的末尾，说明该分区当前没有更多的消息，同样跳过后续处理，继续下一次循环
+                if (consumeResult == null || consumeResult.IsPartitionEOF)
                 {
                     continue;
                 }
