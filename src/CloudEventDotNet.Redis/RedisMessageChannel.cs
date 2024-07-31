@@ -7,17 +7,19 @@ namespace CloudEventDotNet.Redis;
 internal sealed partial class RedisMessageChannel
 {
     private readonly Channel<RedisMessageWorkItem> _channel;
-    private readonly RedisMessageTelemetry _telemetry;
     private readonly CancellationTokenSource _stopTokenSource = new();
+    private readonly ILogger _logger;
+    //private readonly ILoggerFactory _loggerFactory;
 
     public RedisMessageChannel(
         RedisSubscribeOptions options,
         IDatabase database,
         RedisMessageChannelContext channelContext,
         RedisWorkItemContext workItemContext,
-        RedisMessageTelemetry telemetry)
+        ILoggerFactory loggerFactory)
     {
-        _telemetry = telemetry;
+        //_loggerFactory = loggerFactory;
+        _logger = loggerFactory.CreateLogger<RedisMessageChannel>();
 
         int capacity = options.RunningWorkItemLimit;
         if (capacity > 0)
@@ -27,7 +29,7 @@ internal sealed partial class RedisMessageChannel
                 SingleReader = true,
                 SingleWriter = true
             });
-            _telemetry.Logger.LogDebug("Created bounded channel");
+            _logger.LogDebug("Created bounded channel");
         }
         else
         {
@@ -36,7 +38,7 @@ internal sealed partial class RedisMessageChannel
                 SingleReader = true,
                 SingleWriter = true
             });
-            _telemetry.Logger.LogDebug("Created unbounded channel");
+            _logger.LogDebug("Created unbounded channel");
         }
 
         Writer = new RedisMessageChannelWriter(
@@ -45,12 +47,12 @@ internal sealed partial class RedisMessageChannel
             channelContext,
             _channel.Writer,
             workItemContext,
-            _telemetry,
+            loggerFactory,
             _stopTokenSource.Token);
 
         Reader = new RedisMessageChannelReader(
             _channel.Reader,
-            _telemetry,
+            loggerFactory,
             _stopTokenSource.Token);
     }
 

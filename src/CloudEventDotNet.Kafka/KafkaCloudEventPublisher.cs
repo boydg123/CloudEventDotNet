@@ -1,6 +1,4 @@
-using System.Text.Json;
 using Confluent.Kafka;
-using CloudEventDotNet.Kafka;
 using Microsoft.Extensions.Logging;
 
 namespace CloudEventDotNet;
@@ -11,17 +9,21 @@ namespace CloudEventDotNet;
 internal sealed class KafkaCloudEventPublisher : ICloudEventPublisher
 {
     private readonly IProducer<byte[], byte[]> _producer; // Kafka producer
-    private readonly KafkaProducerTelemetry _telemetry;
+    private readonly ILogger _logger;
 
     public KafkaCloudEventPublisher(
         string pubSubName,
         KafkaPublishOptions options,
         ILoggerFactory loggerFactory)
     {
-        _telemetry = new KafkaProducerTelemetry(pubSubName, loggerFactory);
+        _logger = loggerFactory.CreateLogger(nameof(KafkaCloudEventPublisher));
         _producer = new ProducerBuilder<byte[], byte[]>(options.ProducerConfig)
-            .SetErrorHandler((_, e) => _telemetry.OnProducerError(e))
-            .SetLogHandler((_, log) => _telemetry.OnProducerLog(log))
+            .SetErrorHandler((_, e) => _logger.LogError($"Producer error: {e}"))
+            .SetLogHandler((_, log) =>
+            {
+                int level = log.LevelAs(LogLevelType.MicrosoftExtensionsLogging);
+                _logger.Log((LogLevel)level, "Producer log: {message}", log);
+            })
             .Build();
     }
 
@@ -34,6 +36,7 @@ internal sealed class KafkaCloudEventPublisher : ICloudEventPublisher
 
         // 生产消息
         DeliveryResult<byte[], byte[]> result = await _producer.ProduceAsync(topic, message).ConfigureAwait(false);
-        _telemetry.OnMessageProduced(result, _producer.Name);
+
+        _logger.LogDebug($"Produced message {result.Topic}:{result.Partition.Value}:{result.Offset.Value}");
     }
 }

@@ -11,19 +11,19 @@ internal sealed class KafkaMessageWorkItem : IThreadPoolWorkItem
 {
     private readonly KafkaMessageChannelContext _channelContext; // 消息通道
     private readonly KafkaWorkItemContext _context; // 
-    private readonly KafkaMessageChannelTelemetry _telemetry;
+    private readonly ILogger _logger;
     private readonly ConsumeResult<byte[], byte[]> _message; // 消息
     private readonly CancellationTokenSource _cancellationTokenSource = new();
 
     internal KafkaMessageWorkItem(
         KafkaMessageChannelContext channelContext,
         KafkaWorkItemContext context,
-        KafkaMessageChannelTelemetry telemetry,
+        ILoggerFactory loggerFactory,
         ConsumeResult<byte[], byte[]> message)
     {
+        _logger = loggerFactory.CreateLogger<KafkaMessageWorkItem>();
         _channelContext = channelContext;
         _context = context;
-        _telemetry = telemetry;
         _message = message;
     }
 
@@ -65,12 +65,12 @@ internal sealed class KafkaMessageWorkItem : IThreadPoolWorkItem
             // 尝试从注册表中获取处理程序
             if (!_context.Registry.TryGetHandler(metadata, out var handler))
             {
-                CloudEventProcessingTelemetry.OnHandlerNotFound(_telemetry.Logger, metadata);
+                _logger.LogDebug($"No handler for {metadata}, ignored");
                 return;
             }
             // 如果找到处理程序，异步处理消息。
             bool succeed = await handler.ProcessAsync(cloudEvent, _cancellationTokenSource.Token).ConfigureAwait(false);
-            KafkaConsumerTelemetry.OnConsumed(_channelContext.ConsumerName, _channelContext.ConsumerGroup);
+            _logger.LogDebug($"messaging.kafka.client_id:{_channelContext.ConsumerName}.messaging.kafka.consumer_group:{_channelContext.ConsumerGroup}");
 
             if (!succeed)
             {
@@ -80,7 +80,7 @@ internal sealed class KafkaMessageWorkItem : IThreadPoolWorkItem
         }
         catch (Exception ex)
         {
-            _telemetry.Logger.LogError(ex, "Error handling Kafka message");
+            _logger.LogError(ex, "Error handling Kafka message");
         }
         finally
         {

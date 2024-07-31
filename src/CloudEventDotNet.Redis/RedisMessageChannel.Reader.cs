@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using Microsoft.Extensions.Logging;
 
 namespace CloudEventDotNet.Redis;
 /// <summary>
@@ -13,18 +14,21 @@ internal sealed partial class RedisMessageChannelReader
     // 处理异常情况，确保系统的稳定性。
     private readonly ChannelReader<RedisMessageWorkItem> _channelReader; // 用于从通道中读取 RedisMessageWorkItem 对象
     private readonly CancellationToken _stopToken;
-    private readonly RedisMessageTelemetry _telemetry;
     private readonly Task _readLoop; // 用于执行读取循环的任务。
+    //private readonly ILoggerFactory _loggerFactory;
+    private readonly ILogger _logger;
 
     public RedisMessageChannelReader(
         ChannelReader<RedisMessageWorkItem> channelReader,
-        RedisMessageTelemetry telemetry,
-        CancellationToken stopToken)
+        ILoggerFactory loggerFactory,
+        CancellationToken stopToken
+        )
     {
         _channelReader = channelReader;
         _stopToken = stopToken;
-        _telemetry = telemetry;
         _readLoop = Task.Run(ReadLoop, default);
+        // _loggerFactory = loggerFactory;
+        _logger = loggerFactory.CreateLogger<RedisMessageChannelReader>();
     }
 
     public Task StopAsync()
@@ -37,7 +41,7 @@ internal sealed partial class RedisMessageChannelReader
     {
         try
         {
-            _telemetry.OnMessageChannelReaderStarted();
+            _logger.LogInformation("Polling started.");
             while (true) // 进入一个无限循环，尝试从通道中读取工作项
             {
                 // 如果成功读取到工作项，检查其是否已启动，如果未启动则执行并记录遥测信息
@@ -45,17 +49,17 @@ internal sealed partial class RedisMessageChannelReader
                 {
                     if (!workItem.Started)
                     {
-                        _telemetry.OnWorkItemStarting();
+                        _logger.LogTrace("Work item not started, starting it");
                         workItem.Execute();
-                        _telemetry.OnWorkItemStarted();
+                        _logger.LogTrace("Work item started");
                     }
                     //等待工作项完成，如果未完成则记录遥测信息并等待其完成
                     var vt = workItem.WaitToCompleteAsync();
                     if (!vt.IsCompletedSuccessfully)
                     {
-                        _telemetry.OnWaitingWorkItemComplete();
+                        _logger.LogTrace("Work item not completed, waiting");
                         await vt.ConfigureAwait(false);
-                        _telemetry.OnWorkItemCompleted();
+                        _logger.LogTrace("Work item completed");
                     }
                 }
                 else
@@ -63,13 +67,13 @@ internal sealed partial class RedisMessageChannelReader
                     // 如果未读取到工作项，检查取消令牌是否已请求取消，如果是则记录遥测信息并退出循环。
                     if (_stopToken.IsCancellationRequested)
                     {
-                        _telemetry.MessageChannelReaderStopped();
+                        _logger.LogDebug("Reader stopped");
                         return;
                     }
                     else
                     {
                         // 如果没有取消请求，记录等待下一个工作项的遥测信息并等待通道可读
-                        _telemetry.WaitingForNextWorkItem();
+                        _logger.LogTrace("Waiting for next work item");
                         await _channelReader.WaitToReadAsync(_stopToken).ConfigureAwait(false);
                     }
                 }
@@ -77,12 +81,12 @@ internal sealed partial class RedisMessageChannelReader
         }
         catch (OperationCanceledException ex) when (ex.CancellationToken == _stopToken)
         {
-            _telemetry.MessageChannelReaderCancelled();
+            _logger.LogTrace("Reader cancelled");
         }
         catch (Exception ex)
         {
-            _telemetry.ExceptionOnReadingWorkItems(ex);
+            _logger.LogError(ex, "Exception on polling");
         }
-        _telemetry.MessageChannelReaderStopped();
+        _logger.LogDebug("Reader stopped");
     }
 }

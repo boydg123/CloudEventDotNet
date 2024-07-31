@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
 namespace CloudEventDotNet.Redis;
@@ -9,9 +10,9 @@ namespace CloudEventDotNet.Redis;
 /// <param name="Registry"></param>
 /// <param name="ScopeFactory"></param>
 /// <param name="Redis"></param>
-/// <param name="RedisTelemetry"></param>
+/// <param name="LoggerFactory"></param>
 internal record RedisWorkItemContext(
     Registry Registry,
     IServiceScopeFactory ScopeFactory,
     IDatabase Redis,
-    RedisMessageTelemetry RedisTelemetry);
+    ILoggerFactory LoggerFactory);

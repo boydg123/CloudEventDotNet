@@ -13,14 +13,17 @@ internal class KafkaMessageChannel
     private readonly CancellationTokenSource _stopTokenSource = new(); //用于停止消息通道的 CancellationTokenSource
     private readonly KafkaMessageChannelContext _channelContext; //消息通道上下文
     private readonly KafkaWorkItemContext _workItemContext; //工作项上下文
-    private readonly KafkaMessageChannelTelemetry _telemetry; 
+    private readonly ILoggerFactory _loggerFactory;
+    private readonly ILogger _logger;
 
     public KafkaMessageChannel(
         KafkaSubscribeOptions options,
         KafkaMessageChannelContext channelContext,
         KafkaWorkItemContext workItemContext,
-        KafkaMessageChannelTelemetry telemetry)
+        ILoggerFactory loggerFactory)
     {
+        _loggerFactory = loggerFactory;
+        _logger = loggerFactory.CreateLogger<KafkaMessageChannel>();
         if (options.RunningWorkItemLimit > 0)
         {
             // 创建有界(有容量)通道
@@ -29,7 +32,7 @@ internal class KafkaMessageChannel
                 SingleReader = true,
                 SingleWriter = true
             });
-            telemetry.Logger.LogDebug("Created bounded channel");
+            _logger.LogDebug("Created bounded channel");
         }
         else
         {
@@ -39,16 +42,15 @@ internal class KafkaMessageChannel
                 SingleReader = true,
                 SingleWriter = true
             });
-            telemetry.Logger.LogDebug("Created unbounded channel");
+            _logger.LogDebug("Created unbounded channel");
         }
 
         Reader = new KafkaMessageChannelReader(
             _channel.Reader,
-            telemetry,
+            loggerFactory,
             _stopTokenSource.Token);
         _channelContext = channelContext;
         _workItemContext = workItemContext;
-        _telemetry = telemetry;
     }
 
     public bool IsActive { get; }
@@ -72,7 +74,7 @@ internal class KafkaMessageChannel
         var workItem = new KafkaMessageWorkItem(
             _channelContext,
             _workItemContext,
-            _telemetry,
+            _loggerFactory,
             message);
 
         if (!_channel.Writer.TryWrite(workItem))

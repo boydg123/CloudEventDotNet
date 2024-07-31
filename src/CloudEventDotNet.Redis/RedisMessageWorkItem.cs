@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CloudEventDotNet.Redis.Instruments;
+using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
 namespace CloudEventDotNet.Redis;
@@ -12,6 +13,7 @@ internal sealed class RedisMessageWorkItem : IThreadPoolWorkItem
     private readonly CancellationTokenSource _cancellationTokenSource = new();
     private readonly WorkItemWaiter _waiter = new(); // 用于等待工作项完成
     private readonly RedisWorkItemContext _context; // Redis 工作项相关的上下文信息
+    private readonly ILogger _logger;
 
     internal RedisMessageWorkItem(
         RedisMessageChannelContext channelContext,
@@ -21,6 +23,7 @@ internal sealed class RedisMessageWorkItem : IThreadPoolWorkItem
         _context = context;
         ChannelContext = channelContext;
         Message = message;
+        _logger = context.LoggerFactory.CreateLogger<RedisMessageWorkItem>();
     }
 
     // Redis消息通道上下文
@@ -73,13 +76,13 @@ internal sealed class RedisMessageWorkItem : IThreadPoolWorkItem
                     ChannelContext.Topic,
                     ChannelContext.ConsumerGroup,
                     Message.Id).ConfigureAwait(false);
-                _context.RedisTelemetry.OnMessageAcknowledged(Message.Id.ToString());
+                _logger.LogDebug($"Message {Message.Id} acknowledged");
             }
             RedisTelemetry.OnMessageProcessed(ChannelContext.ConsumerGroup, ChannelContext.ConsumerName);
         }
         catch (Exception ex)
         {
-            _context.RedisTelemetry.OnProcessMessageFailed(Message.Id.ToString(), ex);
+            _logger.LogError(ex, $"Failed to process message {Message.Id}");
         }
         finally
         {

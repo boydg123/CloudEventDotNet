@@ -10,17 +10,17 @@ namespace CloudEventDotNet.Redis;
 /// </summary>
 internal sealed class RedisCloudEventPublisher : ICloudEventPublisher
 {
-    private readonly ILogger<RedisCloudEventPublisher> _logger;
+    private readonly ILogger _logger;
     private readonly RedisPublishOptions _options;
     private readonly IConnectionMultiplexer _multiplexer;
     private readonly IDatabase _database;
 
-    public RedisCloudEventPublisher(ILogger<RedisCloudEventPublisher> logger, RedisPublishOptions options)
+    public RedisCloudEventPublisher(ILoggerFactory loggerFactory, RedisPublishOptions options)
     {
-        _logger = logger;
         _options = options;
         _multiplexer = _options.ConnectionMultiplexerFactory();
         _database = _multiplexer.GetDatabase(_options.Database);
+        _logger = loggerFactory.CreateLogger<RedisCloudEventPublisher>();
     }
 
     /// <summary>
@@ -39,6 +39,8 @@ internal sealed class RedisCloudEventPublisher : ICloudEventPublisher
             data,
             maxLength: _options.MaxLength,
             useApproximateMaxLength: true).ConfigureAwait(false);
-        RedisTelemetry.OnMessageProduced(_logger, _multiplexer, topic, id.ToString());
+
+        _logger.LogDebug($"Produced message {id.ToString()} to {topic}");
+        _logger.LogDebug($"messaging.redis.client_name:{_multiplexer.ClientName}");
     }
 }

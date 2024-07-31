@@ -10,19 +10,22 @@ internal sealed class CloudEventPubSub : ICloudEventPubSub
 {
     private readonly PubSubOptions _options;
     private readonly Dictionary<string, ICloudEventPublisher> _publishers;
-    private readonly ILogger<CloudEventPubSub> _logger;
+    private readonly ILoggerFactory _loggerFactory;
+    private readonly ILogger _logger;
     private readonly Registry _registry;
 
     public CloudEventPubSub(
-        ILogger<CloudEventPubSub> logger,
         IServiceProvider services,
         Registry registry,
-        IOptions<PubSubOptions> options)
+        IOptions<PubSubOptions> options,
+        ILoggerFactory loggerFactory)
     {
         _options = options.Value;
+        _loggerFactory = loggerFactory;
         _publishers = _options.PublisherFactoris.ToDictionary(kvp => kvp.Key, kvp => kvp.Value(services));
-        _logger = logger;
+        _logger = loggerFactory.CreateLogger<CloudEventPubSub>();
         _registry = registry;
+
     }
 
     /// <summary>
@@ -49,7 +52,8 @@ internal sealed class CloudEventPubSub : ICloudEventPubSub
             DataSchema: null,
             Subject: null
         );
-        using var activity = CloudEventPublishTelemetry.OnCloudEventPublishing(metadata, cloudEvent);
+        // using var activity = CloudEventPublishTelemetry.OnCloudEventPublishing(metadata, cloudEvent);
+        _logger.LogDebug($"Publishing cloud event: {JSON.Serialize(cloudEvent)}, Metadata: {JSON.Serialize(metadata)}");
 
         // 发布事件
         var publisher = _publishers[metadata.PubSubName];
@@ -62,6 +66,8 @@ internal sealed class CloudEventPubSub : ICloudEventPubSub
         //避免死锁：在某些情况下，如果不使用.ConfigureAwait(false)，异步方法可能会在等待任务完成时尝试返回到原始同步上下文，这可能导致死锁。
         //true 在一些UI线程中，需要返回到当前的UI线程
 
-        CloudEventPublishTelemetry.OnCloudEventPublished(metadata);
+        _logger.LogDebug($"Published CloudEvent:{JSON.Serialize(metadata)}");
+
+        // CloudEventPublishTelemetry.OnCloudEventPublished(metadata);
     }
 }

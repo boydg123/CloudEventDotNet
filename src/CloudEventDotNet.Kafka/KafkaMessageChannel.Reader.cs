@@ -1,5 +1,6 @@
 using System.Threading.Channels;
 using Confluent.Kafka;
+using Microsoft.Extensions.Logging;
 
 namespace CloudEventDotNet.Kafka;
 
@@ -10,19 +11,20 @@ internal class KafkaMessageChannelReader
 {
     private readonly Task _readLoop; // 用于运行读取循环的任务
     private readonly ChannelReader<KafkaMessageWorkItem> _channelReader;
-    private readonly KafkaMessageChannelTelemetry _telemetry;
     private readonly CancellationToken _stopToken;
+    private readonly ILogger _logger;
 
     public KafkaMessageChannelReader(
         ChannelReader<KafkaMessageWorkItem> channelReader,
-        KafkaMessageChannelTelemetry telemetry,
-        CancellationToken stopToken)
+        ILoggerFactory loggerFactory,
+        CancellationToken stopToken
+        )
     {
         _channelReader = channelReader;
-        _telemetry = telemetry;
         _stopToken = stopToken;
 
         _readLoop = Task.Run(ReadLoop, default); //启动一个后台任务 _readLoop 来运行 ReadLoop 方法
+        _logger = loggerFactory.CreateLogger<KafkaMessageChannelReader>();
     }
 
     // 用于存储当前处理的 Kafka 消息的偏移量
@@ -37,7 +39,7 @@ internal class KafkaMessageChannelReader
     {
         try
         {
-            _telemetry.OnMessageChannelReaderStarted();
+            _logger.LogDebug("Polling started");
             while (true)
             {
                 // 从通道中读取 Kafka 消息工作项并处理它们
@@ -46,31 +48,31 @@ internal class KafkaMessageChannelReader
                     //如果成功读取到工作项，则执行并等待其完成，同时更新偏移量
                     if (!workItem.Started)
                     {
-                        _telemetry.OnWorkItemStarting();
+                        _logger.LogTrace("Work item not started, starting it");
                         workItem.Execute();
-                        _telemetry.OnWorkItemStarted();
+                        _logger.LogTrace("Work item started");
                     }
                     var vt = workItem.WaitToCompleteAsync();
                     if (!vt.IsCompletedSuccessfully)
                     {
-                        _telemetry.OnWaitingWorkItemComplete();
+                        _logger.LogTrace("Work item not completed, waiting");
                         await vt.ConfigureAwait(false);
-                        _telemetry.OnWorkItemCompleted();
+                        _logger.LogTrace("Work item completed");
                     }
                     Offset = workItem.TopicPartitionOffset;
-                    _telemetry.OnOffsetChecked(Offset.Offset.Value);
+                    _logger.LogTrace($"Checked offset {Offset.Offset.Value}");
                 }
                 else
                 {
                     //如果没有读取到工作项，检查取消令牌是否被请求，如果是则停止循环，否则等待下一个工作项
                     if (_stopToken.IsCancellationRequested)
                     {
-                        _telemetry.MessageChannelReaderStopped();
+                        _logger.LogDebug("Reader stopped");
                         return;
                     }
                     else
                     {
-                        _telemetry.WaitingForNextWorkItem();
+                        _logger.LogTrace("Waiting for next work item");
                         await _channelReader.WaitToReadAsync(_stopToken).ConfigureAwait(false);
                     }
                 }
@@ -78,13 +80,13 @@ internal class KafkaMessageChannelReader
         }
         catch (OperationCanceledException ex) when (ex.CancellationToken == _stopToken)
         {
-            _telemetry.MessageChannelReaderCancelled();
+            _logger.LogTrace("Reader cancelled");
         }
         catch (Exception ex)
         {
-            _telemetry.ExceptionOnReadingWorkItems(ex);
+            _logger.LogError(ex, "Exception on polling");
         }
-        _telemetry.MessageChannelReaderStopped();
+        _logger.LogDebug("Reader stopped");
     }
 }
 

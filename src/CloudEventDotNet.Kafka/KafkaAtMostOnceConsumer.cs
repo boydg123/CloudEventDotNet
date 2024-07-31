@@ -13,15 +13,18 @@ internal sealed class KafkaAtMostOnceConsumer : ICloudEventSubscriber
     private readonly string[] _topics; // 订阅主题
     private readonly KafkaMessageChannel _channel; // 消息通道
     private readonly KafkaConsumerTelemetry _telemetry; // 消费者性能跟踪
-    private readonly CancellationTokenSource _stopTokenSource = new(); 
+    private readonly CancellationTokenSource _stopTokenSource = new();
+    private readonly ILogger<KafkaRedeliverProducer> _logger;
 
     public KafkaAtMostOnceConsumer(
         string pubSubName,
         KafkaSubscribeOptions options,
         Registry registry,
-        ILoggerFactory loggerFactory)
+        ILoggerFactory loggerFactory,
+        ILogger<KafkaRedeliverProducer> logger)
     {
         _telemetry = new KafkaConsumerTelemetry(pubSubName, loggerFactory);
+        _logger = logger;
         _consumer = new ConsumerBuilder<byte[], byte[]>(options.ConsumerConfig)
             .SetErrorHandler((_, e) => _telemetry.OnConsumerError(e)) // 错误处理
             .SetPartitionsAssignedHandler((c, partitions) => _telemetry.OnPartitionsAssigned(partitions)) // 分区分配
@@ -37,7 +40,7 @@ internal sealed class KafkaAtMostOnceConsumer : ICloudEventSubscriber
             Acks = Acks.Leader,
             LingerMs = 10
         };
-        _workItemContext = new KafkaWorkItemContext(registry, new(options, _telemetry));
+        _workItemContext = new KafkaWorkItemContext(registry, new(options, loggerFactory));
         _topics = registry.GetSubscribedTopics(pubSubName).ToArray();
 
         var channelContext = new KafkaMessageChannelContext(
@@ -54,7 +57,7 @@ internal sealed class KafkaAtMostOnceConsumer : ICloudEventSubscriber
             options,
             channelContext,
             _workItemContext,
-            telemetry
+            loggerFactory
         );
     }
 
@@ -97,7 +100,7 @@ internal sealed class KafkaAtMostOnceConsumer : ICloudEventSubscriber
     /// </summary>
     private void ConsumeLoop()
     {
-        _telemetry.OnConsumeLoopStarted();
+        _logger.LogDebug("Consume loop started");
         while (!_stopTokenSource.Token.IsCancellationRequested)
         {
             try
@@ -107,15 +110,15 @@ internal sealed class KafkaAtMostOnceConsumer : ICloudEventSubscriber
                 {
                     continue;
                 }
-                _telemetry.OnMessageFetched(consumeResult.TopicPartitionOffset);
+                _logger.LogDebug("Fetched message {offset}", consumeResult.TopicPartitionOffset);
                 _channel.DispatchMessage(consumeResult);
             }
             catch (OperationCanceledException) { break; }
             catch (Exception e)
             {
-                _telemetry.OnConsumeFailed(e);
+                _logger.LogError(e, "Error on consuming");
             }
         }
-        _telemetry.OnConsumeLoopStopped();
+        _logger.LogDebug("Consume loop stopped");
     }
 }

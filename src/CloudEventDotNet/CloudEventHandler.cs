@@ -9,7 +9,7 @@ internal class CloudEventHandler
 {
     private readonly HandleCloudEventDelegate _process;
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly CloudEventProcessingTelemetry _telemetry;
+    private readonly ILogger _logger;
 
     public CloudEventHandler(
         CloudEventMetadata metadata,
@@ -19,22 +19,24 @@ internal class CloudEventHandler
     {
         _process = handleDelegate;
         _scopeFactory = scopeFactory;
-        _telemetry = new CloudEventProcessingTelemetry(loggerFactory, metadata);
+        _logger = loggerFactory.CreateLogger<CloudEventHandler>();
+        //_telemetry = new CloudEventProcessingTelemetry(loggerFactory, metadata);
     }
 
     public async Task<bool> ProcessAsync(CloudEvent @event, CancellationToken token)
     {
-        using var activity = _telemetry.OnProcessing(@event);
+        // using var activity = _telemetry.OnProcessing(@event);
+        _logger.LogDebug($"OnProcessing:{JSON.Serialize(@event)}");
         try
         {
             using var scope = _scopeFactory.CreateScope();
             await _process(scope.ServiceProvider, @event, token).ConfigureAwait(false);
-            _telemetry.OnCloudEventProcessed(@event);
+            _logger.LogDebug($"Process CloudEvent {@event.Id}");
             return true;
         }
         catch (Exception ex)
         {
-            _telemetry.OnProcessingCloudEventFailed(ex, @event.Id);
+            _logger.LogError(ex, $"Failed to process CloudEvent {@event.Id}");
             return false;
         }
     }

@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
 namespace CloudEventDotNet.Redis;
@@ -19,7 +20,7 @@ internal sealed class RedisMessageChannelWriter
     private readonly RedisMessageChannelContext _channelContext; // Redis消息通道上下文
     private readonly ChannelWriter<RedisMessageWorkItem> _channelWriter; // Redis消息通道写入器
     private readonly RedisWorkItemContext _workItemContext; // Redis工作项上下文
-    private readonly RedisMessageTelemetry _telemetry;
+    private readonly ILogger _logger;
     private readonly CancellationToken _stopToken;
     private readonly Task _pollNewMessagesLoop; // 轮询新消息循环
     private readonly Task _claimPendingMessagesLoop; // 领取待处理消息循环
@@ -30,7 +31,7 @@ internal sealed class RedisMessageChannelWriter
         RedisMessageChannelContext channelContext,
         ChannelWriter<RedisMessageWorkItem> channelWriter,
         RedisWorkItemContext workItemContext,
-        RedisMessageTelemetry telemetry,
+        ILoggerFactory loggerFactory,
         CancellationToken stopToken)
     {
         _options = options;
@@ -38,7 +39,7 @@ internal sealed class RedisMessageChannelWriter
         _channelContext = channelContext;
         _channelWriter = channelWriter;
         _workItemContext = workItemContext;
-        _telemetry = telemetry;
+        _logger = loggerFactory.CreateLogger<RedisMessageChannelWriter>();
         _stopToken = stopToken;
         _pollNewMessagesLoop = Task.Run(PollNewMessagesLoop, default);
         _claimPendingMessagesLoop = Task.Run(ClaimPendingMessagesLoop, default);
@@ -58,7 +59,7 @@ internal sealed class RedisMessageChannelWriter
     {
         try
         {
-            _telemetry.OnFetchMessagesLoopStarted();
+            _logger.LogDebug("Started fetch new messages loop");
             try
             {
                 // 创建消费者组，如果消费者组已存在则捕获异常并继续
@@ -84,20 +85,20 @@ internal sealed class RedisMessageChannelWriter
 
                 if (messages.Length > 0)
                 {
-                    _telemetry.OnMessagesFetched(messages.Length);
+                    _logger.LogDebug($"Fetched {messages.Length} new messages");
                     await DispatchMessages(messages).ConfigureAwait(false);
                 }
                 else
                 {
-                    _telemetry.OnNoMessagesFetched();
+                    _logger.LogDebug("No new messages, waiting for next loop");
                     await Task.Delay(_options.PollInterval, default);
                 }
             }
-            _telemetry.OnFetchNewMessagesLoopStopped();
+            _logger.LogDebug("Stopped fetch new messages loop");
         }
         catch (Exception ex)
         {
-            _telemetry.OnFetchNewMessagesLoopError(ex);
+            _logger.LogError(ex, "Error in fetch new messages loop");
             throw;
         }
     }
@@ -112,13 +113,13 @@ internal sealed class RedisMessageChannelWriter
     {
         try
         {
-            _telemetry.OnClaimMessagesLoopStarted();
+            _logger.LogDebug("Started claim messages loop");
             while (!_stopToken.IsCancellationRequested)
             {
                 await ClaimPendingMessages().ConfigureAwait(false);
                 await Task.Delay(_options.PollInterval, default);
             }
-            _telemetry.OnClaimMessagesLoopStopped();
+            _logger.LogDebug("Stopped claim messages loop");
 
             async Task ClaimPendingMessages()
             {
@@ -129,11 +130,11 @@ internal sealed class RedisMessageChannelWriter
                         _channelContext.ConsumerGroup,
                         _options.PollBatchSize,
                         RedisValue.Null).ConfigureAwait(false);
-                    _telemetry.OnPendingMessagesInformationFetched(pendingMessages.Length);
+                    _logger.LogDebug($"Fetched {pendingMessages.Length} pending messages");
 
                     if (pendingMessages.Length == 0)
                     {
-                        _telemetry.OnNoMessagesToClaim();
+                        _logger.LogDebug("No messages to claim, waiting for next loop");
                         return;
                     }
 
@@ -145,7 +146,7 @@ internal sealed class RedisMessageChannelWriter
                     if (messagesToClaim.Length == 0)
                     {
                         var first = pendingMessages[0];
-                        _telemetry.OnNoTimeoutedMessagesToClaim(first.MessageId.ToString(), first.IdleTimeInMilliseconds, first.DeliveryCount);
+                        _logger.LogDebug($"No timeouted messages to claim, waiting for next loop, earliest: id: {first.MessageId}, idle {first.IdleTimeInMilliseconds}ms , dc {first.DeliveryCount}");
                         return;
                     }
 
@@ -157,14 +158,14 @@ internal sealed class RedisMessageChannelWriter
                         messagesToClaim
                     ).ConfigureAwait(false);
 
-                    _telemetry.OnMessagesClaimed(claimedMessages.Length);
+                    _logger.LogDebug($"Claimed {claimedMessages.Length} messages");
                     await DispatchMessages(claimedMessages).ConfigureAwait(false);
                 }
             }
         }
         catch (Exception ex)
         {
-            _telemetry.OnClaimMessagesLoopError(ex);
+            _logger.LogError(ex, "Error in claim messages loop");
             throw;
         }
     }
@@ -188,9 +189,8 @@ internal sealed class RedisMessageChannelWriter
                 await _channelWriter.WriteAsync(workItem).ConfigureAwait(false);
             }
             ThreadPool.UnsafeQueueUserWorkItem(workItem, false);
-            _telemetry.OnMessageDispatched(message.Id.ToString());
+            _logger.LogDebug($"Message {message.Id} dispatched to process");
         }
-        _telemetry.OnMessagesDispatched(messages.Length);
+        _logger.LogDebug($"Dispatched {messages.Length} messages to process");
     }
-
 }

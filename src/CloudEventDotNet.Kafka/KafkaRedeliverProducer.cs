@@ -1,5 +1,6 @@
 
 using Confluent.Kafka;
+using Microsoft.Extensions.Logging;
 
 namespace CloudEventDotNet.Kafka;
 
@@ -9,8 +10,9 @@ namespace CloudEventDotNet.Kafka;
 internal class KafkaRedeliverProducer
 {
     private readonly IProducer<byte[], byte[]> _producer;
+    private readonly ILogger _logger;
 
-    public KafkaRedeliverProducer(KafkaSubscribeOptions options, KafkaConsumerTelemetry telemetry)
+    public KafkaRedeliverProducer(KafkaSubscribeOptions options, ILoggerFactory loggerFactory)
     {
         //创建一个生产者配置对象，设置引导服务器地址、确认机制和消息发送延迟
         var producerConfig = new ProducerConfig()
@@ -19,11 +21,15 @@ internal class KafkaRedeliverProducer
             Acks = Acks.Leader,
             LingerMs = 10
         };
-
+        _logger = loggerFactory.CreateLogger<KafkaRedeliverProducer>();
         //使用ProducerBuilder创建一个生产者实例，并设置错误处理和日志处理回调函数
         _producer = new ProducerBuilder<byte[], byte[]>(producerConfig)
-            .SetErrorHandler((_, e) => telemetry.OnProducerError(e))
-            .SetLogHandler((_, log) => telemetry.OnProducerLog(log))
+            .SetErrorHandler((_, e) => _logger.LogError("Producer error: {e}", e))
+            .SetLogHandler((_, log) =>
+            {
+                int level = log.LevelAs(LogLevelType.MicrosoftExtensionsLogging);
+                _logger.Log((LogLevel)level, "Producer log: {message}", log);
+            })
             .Build();
     }
 

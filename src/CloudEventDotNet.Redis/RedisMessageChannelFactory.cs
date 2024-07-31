@@ -72,19 +72,18 @@ internal class RedisMessageChannelFactory
             options.ConsumerGroup,
             topic
         );
-        var redisTelemetry = new RedisMessageTelemetry(_loggerFactory, channelContext);
         var workItemContext = new RedisWorkItemContext(
             _registry,
             _scopeFactory,
             redis,
-            redisTelemetry
+            _loggerFactory
         );
         var channel = new RedisMessageChannel(
             options,
             redis,
             channelContext,
             workItemContext,
-            redisTelemetry);
+            _loggerFactory);
         return channel;
     }
 
