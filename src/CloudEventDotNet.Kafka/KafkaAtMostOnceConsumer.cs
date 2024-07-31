@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Confluent.Kafka;
 using Microsoft.Extensions.Logging;
 
@@ -12,7 +13,6 @@ internal sealed class KafkaAtMostOnceConsumer : ICloudEventSubscriber
     private readonly KafkaWorkItemContext _workItemContext; // 消息处理上下文
     private readonly string[] _topics; // 订阅主题
     private readonly KafkaMessageChannel _channel; // 消息通道
-    private readonly KafkaConsumerTelemetry _telemetry; // 消费者性能跟踪
     private readonly CancellationTokenSource _stopTokenSource = new();
     private readonly ILogger<KafkaRedeliverProducer> _logger;
 
@@ -23,15 +23,21 @@ internal sealed class KafkaAtMostOnceConsumer : ICloudEventSubscriber
         ILoggerFactory loggerFactory,
         ILogger<KafkaRedeliverProducer> logger)
     {
-        _telemetry = new KafkaConsumerTelemetry(pubSubName, loggerFactory);
         _logger = logger;
         _consumer = new ConsumerBuilder<byte[], byte[]>(options.ConsumerConfig)
-            .SetErrorHandler((_, e) => _telemetry.OnConsumerError(e)) // 错误处理
-            .SetPartitionsAssignedHandler((c, partitions) => _telemetry.OnPartitionsAssigned(partitions)) // 分区分配
-            .SetPartitionsLostHandler((c, partitions) => _telemetry.OnPartitionsLost(partitions)) // 分区丢失
-            .SetPartitionsRevokedHandler((c, partitions) => _telemetry.OnPartitionsRevoked(partitions)) // 分区撤销
-            .SetLogHandler((_, log) => _telemetry.OnConsumerLog(log)) // 日志处理
-            .SetOffsetsCommittedHandler((_, offsets) => _telemetry.OnConsumerOffsetsCommited(offsets)) // 偏移提交处理
+            .SetErrorHandler((_, e) => _logger.LogError("Consumer error: {e}", e)) // 错误处理
+            .SetPartitionsAssignedHandler((c, partitions) =>
+            {
+                _logger.LogDebug("Partitions assgined: {partitions}", partitions);
+            }) // 分区分配
+            .SetPartitionsLostHandler((c, partitions) => _logger.LogDebug("Partitions lost: {partitions}", partitions)) // 分区丢失
+            .SetPartitionsRevokedHandler((c, partitions) => _logger.LogDebug("Partitions revoked: {partitions}", partitions)) // 分区撤销
+            .SetLogHandler((_, log) =>
+            {
+                int level = log.LevelAs(LogLevelType.MicrosoftExtensionsLogging);
+                _logger.Log(LogLevel.Debug, "Consumer log: {message}", log);
+            }) // 日志处理
+            .SetOffsetsCommittedHandler((_, offsets) => _logger.LogDebug($"Consumer Offsets Commited：{offsets}")) // 偏移提交处理
         .Build();
 
         var producerConfig = new ProducerConfig()
@@ -48,10 +54,6 @@ internal sealed class KafkaAtMostOnceConsumer : ICloudEventSubscriber
             _consumer.Name,
             options.ConsumerConfig.GroupId,
             new TopicPartition("*", -1)
-        );
-        var telemetry = new KafkaMessageChannelTelemetry(
-            loggerFactory,
-            channelContext
         );
         _channel = new KafkaMessageChannel(
             options,

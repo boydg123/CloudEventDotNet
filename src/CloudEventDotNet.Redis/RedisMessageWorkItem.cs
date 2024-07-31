@@ -1,5 +1,4 @@
 using System.Text.Json;
-using CloudEventDotNet.Redis.Instruments;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
@@ -78,7 +77,8 @@ internal sealed class RedisMessageWorkItem : IThreadPoolWorkItem
                     Message.Id).ConfigureAwait(false);
                 _logger.LogDebug($"Message {Message.Id} acknowledged");
             }
-            RedisTelemetry.OnMessageProcessed(ChannelContext.ConsumerGroup, ChannelContext.ConsumerName);
+            //RedisTelemetry.OnMessageProcessed(ChannelContext.ConsumerGroup, ChannelContext.ConsumerName);
+            _logger.LogDebug($"Message ConsumerGroup-{ChannelContext.ConsumerGroup},ConsumerName-{ChannelContext.ConsumerName} Processed.");
         }
         catch (Exception ex)
         {

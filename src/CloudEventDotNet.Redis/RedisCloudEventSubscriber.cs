@@ -1,4 +1,3 @@
-using CloudEventDotNet.Redis.Instruments;
 using Microsoft.Extensions.Logging;
 
 namespace CloudEventDotNet.Redis;

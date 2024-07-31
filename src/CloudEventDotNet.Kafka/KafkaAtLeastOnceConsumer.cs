@@ -12,7 +12,6 @@ internal sealed class KafkaAtLeastOnceConsumer : ICloudEventSubscriber
     private readonly IConsumer<byte[], byte[]> _consumer; // Kafka 消费者
     private readonly KafkaWorkItemContext _workItemContext; // 消息处理上下文
     private readonly string[] _topics; // 订阅的主题
-    private readonly KafkaConsumerTelemetry _telemetry;
     private readonly string _pubSubName; // 发布订阅名称
     private readonly KafkaSubscribeOptions _options; // 订阅选项
     private readonly ILoggerFactory _loggerFactory;
@@ -30,7 +29,6 @@ internal sealed class KafkaAtLeastOnceConsumer : ICloudEventSubscriber
         _options = options;
         _loggerFactory = loggerFactory;
         _logger = loggerFactory.CreateLogger<KafkaAtLeastOnceConsumer>();
-        _telemetry = new KafkaConsumerTelemetry(pubSubName, loggerFactory);
 
         _options.ConsumerConfig.EnableAutoCommit = false;
         _consumer = new ConsumerBuilder<byte[], byte[]>(_options.ConsumerConfig)
@@ -120,7 +118,6 @@ internal sealed class KafkaAtLeastOnceConsumer : ICloudEventSubscriber
                 _logger.LogError(e, "Error on consuming");
             }
         }
-        _telemetry.OnConsumeLoopStopped();
         _logger.LogDebug("Consume loop stopped");
     }
 
@@ -158,10 +155,7 @@ internal sealed class KafkaAtLeastOnceConsumer : ICloudEventSubscriber
                 _options.ConsumerConfig.GroupId,
                 tp
             );
-            var telemetry = new KafkaMessageChannelTelemetry(
-                _loggerFactory,
-                channelContext
-            );
+           
             return new KafkaMessageChannel(
                 _options,
                 channelContext,
@@ -177,7 +171,7 @@ internal sealed class KafkaAtLeastOnceConsumer : ICloudEventSubscriber
     /// <returns></returns>
     private async Task CommitLoop()
     {
-        _telemetry.OnCommitLoopStarted();
+        _logger.LogDebug("Commit loop Started");
         while (!_stopTokenSource.Token.IsCancellationRequested)
         {
             try
