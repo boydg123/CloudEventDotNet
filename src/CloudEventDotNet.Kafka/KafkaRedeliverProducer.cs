@@ -1,30 +1,31 @@
-
-using Confluent.Kafka;
+ï»¿using Confluent.Kafka;
 using Microsoft.Extensions.Logging;
 
 namespace CloudEventDotNet.Kafka;
 
 /// <summary>
-/// ½«´íÎóÏûÏ¢ÖØĞÂ·¢²¼µÄKafkaÉú²úÕß
+/// Kafka å¤±è´¥æ¶ˆæ¯é‡å‘ç”Ÿäº§è€…ã€‚
+/// è´Ÿè´£å°†å¤„ç†å¤±è´¥çš„æ¶ˆæ¯é‡æ–°å‘é€åˆ° Kafka çš„åŒä¸€åˆ†åŒºï¼Œä»¥ä¿è¯æ¶ˆæ¯çš„é¡ºåºæ€§ã€‚
 /// </summary>
-internal class KafkaRedeliverProducer
+internal sealed class KafkaRedeliverProducer
 {
+    // Confluent.Kafka ç”Ÿäº§è€…å®ä¾‹
     private readonly IProducer<byte[], byte[]> _producer;
+    // æ—¥å¿—å®ä¾‹
     private readonly ILogger _logger;
 
     public KafkaRedeliverProducer(KafkaSubscribeOptions options, ILoggerFactory loggerFactory)
     {
-        //´´½¨Ò»¸öÉú²úÕßÅäÖÃ¶ÔÏó£¬ÉèÖÃÒıµ¼·şÎñÆ÷µØÖ·¡¢È·ÈÏ»úÖÆºÍÏûÏ¢·¢ËÍÑÓ³Ù
+        _logger = loggerFactory.CreateLogger<KafkaRedeliverProducer>();
+
+        // åˆ›å»ºä¸€ä¸ªæ–°çš„ç”Ÿäº§è€…é…ç½®ç”¨äºé‡å‘
         var producerConfig = new ProducerConfig()
         {
             BootstrapServers = options.ConsumerConfig.BootstrapServers,
             Acks = Acks.Leader,
             LingerMs = 10
         };
-        _logger = loggerFactory.CreateLogger<KafkaRedeliverProducer>();
-        //Ê¹ÓÃProducerBuilder´´½¨Ò»¸öÉú²úÕßÊµÀı£¬²¢ÉèÖÃ´íÎó´¦ÀíºÍÈÕÖ¾´¦Àí»Øµ÷º¯Êı
         _producer = new ProducerBuilder<byte[], byte[]>(producerConfig)
-            .SetErrorHandler((_, e) => _logger.LogError("Producer error: {e}", e))
             .SetLogHandler((_, log) =>
             {
                 int level = log.LevelAs(LogLevelType.MicrosoftExtensionsLogging);
@@ -34,12 +35,13 @@ internal class KafkaRedeliverProducer
     }
 
     /// <summary>
-    /// Éú²úÕßÊµÀı½«ÏûÏ¢ÖØĞÂ·¢ËÍµ½ÏàÍ¬µÄÖ÷Ìâ
+    /// é‡æ–°å‘é€å¤„ç†å¤±è´¥çš„æ¶ˆæ¯ã€‚
     /// </summary>
-    /// <param name="consumeResult"></param>
-    /// <returns></returns>
-    public Task ReproduceAsync(ConsumeResult<byte[], byte[]> consumeResult)
+    /// <param name="consumeResult">åŸå§‹çš„æ¶ˆè´¹ç»“æœ</param>
+    /// <returns>å¼‚æ­¥ä»»åŠ¡</returns>
+    public async Task ReproduceAsync(ConsumeResult<byte[], byte[]> consumeResult)
     {
-        return _producer.ProduceAsync(consumeResult.Topic, consumeResult.Message);
+        _logger.LogInformation("Reproducing message {message}", consumeResult.TopicPartitionOffset);
+        await _producer.ProduceAsync(consumeResult.TopicPartition, consumeResult.Message).ConfigureAwait(false);
     }
 }

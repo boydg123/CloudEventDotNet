@@ -1,73 +1,76 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Confluent.Kafka;
 using Microsoft.Extensions.Logging;
 
 namespace CloudEventDotNet.Kafka;
 
 /// <summary>
-/// Kafka ���һ��������
+/// Kafka 最多一次投递消费者实现。
+/// 核心思想：性能优先，可靠性次之。消费者拉取消息后，由Kafka客户端自动、定期地提交偏移量，
+/// 而不关心消息是否被业务逻辑成功处理。这换来了极高的处理吞吐量，但在应用崩溃等场景下可能丢失消息。
+/// 
+/// 实现关键：
+/// 1. EnableAutoCommit = true: 启用自动提交偏移量。
+/// 2. 无需手动管理偏移量：没有复杂的提交循环和状态跟踪。
+/// 3. 无需消息通道：消息被直接放入线程池处理，不保证顺序和处理状态。
+/// 
+/// 消息拉取后立即提交偏移量，不保证消息一定被处理。
+/// 性能较高，适用于可接受少量消息丢失的场景。
 /// </summary>
 internal sealed class KafkaAtMostOnceConsumer : ICloudEventSubscriber
 {
-    private readonly IConsumer<byte[], byte[]> _consumer; // Kafka ������
-    private readonly KafkaWorkItemContext _workItemContext; // ��Ϣ����������
-    private readonly string[] _topics; // ��������
-    private readonly KafkaMessageChannel _channel; // ��Ϣͨ��
+    // Confluent.Kafka 消费者实例
+    private readonly IConsumer<byte[], byte[]> _consumer;
+    // 工作项上下文，包含注册中心和重发生产者
+    private readonly KafkaWorkItemContext _workItemContext;
+    // 要订阅的主题列表
+    private readonly string[] _topics;
+    // PubSub 名称
+    private readonly string _pubSubName;
+    // 订阅配置
+    private readonly KafkaSubscribeOptions _options;
+    // 日志工厂
+    private readonly ILoggerFactory _loggerFactory;
+    // 停止令牌源
     private readonly CancellationTokenSource _stopTokenSource = new();
-    private readonly ILogger<KafkaRedeliverProducer> _logger;
+    // 日志实例
+    private readonly ILogger _logger;
 
     public KafkaAtMostOnceConsumer(
         string pubSubName,
         KafkaSubscribeOptions options,
         Registry registry,
-        ILoggerFactory loggerFactory,
-        ILogger<KafkaRedeliverProducer> logger)
+        ILoggerFactory loggerFactory
+        )
     {
-        _logger = logger;
-        _consumer = new ConsumerBuilder<byte[], byte[]>(options.ConsumerConfig)
-            .SetErrorHandler((_, e) => _logger.LogError("Consumer error: {e}", e)) // ������
-            .SetPartitionsAssignedHandler((c, partitions) =>
-            {
-                _logger.LogDebug("Partitions assgined: {partitions}", partitions);
-            }) // ��������
-            .SetPartitionsLostHandler((c, partitions) => _logger.LogDebug("Partitions lost: {partitions}", partitions)) // ������ʧ
-            .SetPartitionsRevokedHandler((c, partitions) => _logger.LogDebug("Partitions revoked: {partitions}", partitions)) // ��������
+        _pubSubName = pubSubName;
+        _options = options;
+        _loggerFactory = loggerFactory;
+        _logger = loggerFactory.CreateLogger<KafkaAtMostOnceConsumer>();
+
+        // 启用自动提交偏移量
+        _options.ConsumerConfig.EnableAutoCommit = true;
+        _consumer = new ConsumerBuilder<byte[], byte[]>(_options.ConsumerConfig)
+            .SetErrorHandler((_, e) => _logger.LogError("Consumer error: {e}", e))
             .SetLogHandler((_, log) =>
             {
                 int level = log.LevelAs(LogLevelType.MicrosoftExtensionsLogging);
                 _logger.Log(LogLevel.Debug, "Consumer log: {message}", log);
-            }) // ��־����
-            .SetOffsetsCommittedHandler((_, offsets) => _logger.LogDebug($"Consumer Offsets Commited��{offsets}")) // ƫ���ύ����
-        .Build();
+            })
+            .Build();
 
-        var producerConfig = new ProducerConfig()
-        {
-            BootstrapServers = options.ConsumerConfig.BootstrapServers,
-            Acks = Acks.Leader,
-            LingerMs = 10
-        };
         _workItemContext = new KafkaWorkItemContext(registry, new(options, loggerFactory));
         _topics = registry.GetSubscribedTopics(pubSubName).ToArray();
+        _logger.LogDebug("KafkaAtMostOnceConsumer created");
 
-        var channelContext = new KafkaMessageChannelContext(
-            pubSubName,
-            _consumer.Name,
-            options.ConsumerConfig.GroupId,
-            new TopicPartition("*", -1)
-        );
-        _channel = new KafkaMessageChannel(
-            options,
-            channelContext,
-            _workItemContext,
-            loggerFactory
-        );
     }
 
     private Task _consumeLoop = default!;
+
     /// <summary>
-    /// ����������
+    /// 启动消费循环。
     /// </summary>
-    /// <returns></returns>
+    /// <returns>异步任务</returns>
     public Task StartAsync()
     {
         if (_topics.Any())
@@ -77,28 +80,25 @@ internal sealed class KafkaAtMostOnceConsumer : ICloudEventSubscriber
         }
         return Task.CompletedTask;
     }
+
     /// <summary>
-    /// ֹͣ������
+    /// 停止消费循环并关闭消费者。
     /// </summary>
-    /// <returns></returns>
+    /// <returns>异步任务</returns>
     public async Task StopAsync()
     {
         if (_topics.Any())
         {
-            _consumer.Unsubscribe();
             _stopTokenSource.Cancel();
             await _consumeLoop;
-            _consumer.Close();
-            await _channel.StopAsync();
+            _consumer.Unsubscribe();
         }
-        else
-        {
-            _consumer.Close();
-        }
+        _consumer.Close();
     }
 
     /// <summary>
-    /// ����ѭ��
+    /// 消费循环。
+    /// 持续从 Kafka 拉取消息并分发给工作项处理。
     /// </summary>
     private void ConsumeLoop()
     {
@@ -108,14 +108,19 @@ internal sealed class KafkaAtMostOnceConsumer : ICloudEventSubscriber
             try
             {
                 ConsumeResult<byte[], byte[]> consumeResult = _consumer.Consume(_stopTokenSource.Token);
-
-                //����Ƿ񵽴��˷�����ĩβ����������˷�����ĩβ��˵���÷�����ǰû�и������Ϣ��ͬ����������������������һ��ѭ��
                 if (consumeResult == null || consumeResult.IsPartitionEOF)
                 {
                     continue;
                 }
                 _logger.LogDebug("Fetched message {offset}", consumeResult.TopicPartitionOffset);
-                _channel.DispatchMessage(consumeResult);
+
+                // 创建工作项并放入线程池执行
+                var workItem = new KafkaMessageWorkItem(
+                    new KafkaMessageChannelContext(_pubSubName, _consumer.Name, _options.ConsumerConfig.GroupId, consumeResult.TopicPartition),
+                    _workItemContext,
+                    _loggerFactory,
+                    consumeResult);
+                ThreadPool.UnsafeQueueUserWorkItem(workItem, false);
             }
             catch (OperationCanceledException) { break; }
             catch (Exception e)

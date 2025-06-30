@@ -1,19 +1,38 @@
-using System.Text.Json;
+ï»¿using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
 namespace CloudEventDotNet.Redis;
 
 /// <summary>
-/// RedisÏûÏ¢´¦Àí¹¤×÷Ïî
+/// Redis æ¶ˆæ¯å¤„ç†å·¥ä½œé¡¹ã€‚
+/// å°è£…äº†å•æ¡ Redis Stream æ¶ˆæ¯çš„å¤„ç†ã€ç¡®è®¤ã€å¼‚å¸¸å¤„ç†ç­‰é€»è¾‘ã€‚
 /// </summary>
 internal sealed class RedisMessageWorkItem : IThreadPoolWorkItem
 {
+    /// <summary>
+    /// ç”¨äºå–æ¶ˆæ¶ˆæ¯å¤„ç†çš„ Tokenã€‚
+    /// </summary>
     private readonly CancellationTokenSource _cancellationTokenSource = new();
-    private readonly WorkItemWaiter _waiter = new(); // ÓÃÓÚµÈ´ı¹¤×÷ÏîÍê³É
-    private readonly RedisWorkItemContext _context; // Redis ¹¤×÷ÏîÏà¹ØµÄÉÏÏÂÎÄĞÅÏ¢
+    /// <summary>
+    /// ç”¨äºç­‰å¾…å·¥ä½œé¡¹å®Œæˆçš„åŒæ­¥å™¨ã€‚
+    /// </summary>
+    private readonly WorkItemWaiter _waiter = new();
+    /// <summary>
+    /// Redis å·¥ä½œé¡¹ç›¸å…³çš„ä¸Šä¸‹æ–‡ä¿¡æ¯ã€‚
+    /// </summary>
+    private readonly RedisWorkItemContext _context;
+    /// <summary>
+    /// æ—¥å¿—è®°å½•å™¨ã€‚
+    /// </summary>
     private readonly ILogger _logger;
 
+    /// <summary>
+    /// æ„é€ å‡½æ•°ï¼Œåˆå§‹åŒ–æ¶ˆæ¯å·¥ä½œé¡¹ã€‚
+    /// </summary>
+    /// <param name="channelContext">é€šé“ä¸Šä¸‹æ–‡</param>
+    /// <param name="context">å·¥ä½œé¡¹ä¸Šä¸‹æ–‡</param>
+    /// <param name="message">Redis Stream æ¶ˆæ¯</param>
     internal RedisMessageWorkItem(
         RedisMessageChannelContext channelContext,
         RedisWorkItemContext context,
@@ -25,17 +44,27 @@ internal sealed class RedisMessageWorkItem : IThreadPoolWorkItem
         _logger = context.LoggerFactory.CreateLogger<RedisMessageWorkItem>();
     }
 
-    // RedisÏûÏ¢Í¨µÀÉÏÏÂÎÄ
+    /// <summary>
+    /// Redis æ¶ˆæ¯é€šé“ä¸Šä¸‹æ–‡ã€‚
+    /// </summary>
     public RedisMessageChannelContext ChannelContext { get; }
-    // Redis¹¤×÷ÏîÉÏÏÂÎÄ
+    /// <summary>
+    /// Redis Stream æ¶ˆæ¯ã€‚
+    /// </summary>
     public StreamEntry Message { get; }
 
-    public bool Started => _started == 1; // ÓÃÓÚ¼ì²é¹¤×÷ÏîÊÇ·ñÒÑ¾­¿ªÊ¼Ö´ĞĞ
+    /// <summary>
+    /// æ£€æŸ¥å·¥ä½œé¡¹æ˜¯å¦å·²ç»å¼€å§‹æ‰§è¡Œã€‚
+    /// </summary>
+    public bool Started => _started == 1;
     private int _started = 0;
 
+    /// <summary>
+    /// å¯åŠ¨æ¶ˆæ¯å¤„ç†ï¼ˆçº¿ç¨‹å®‰å…¨ï¼Œé˜²æ­¢é‡å¤æ‰§è¡Œï¼‰ã€‚
+    /// </summary>
     public void Execute()
     {
-        // ·ÀÖ¹ÖØ¸´Ö´ĞĞ
+        // é˜²æ­¢é‡å¤æ‰§è¡Œ
         if (Interlocked.CompareExchange(ref _started, 1, 0) == 0)
         {
             _ = ExecuteAsync();
@@ -47,30 +76,33 @@ internal sealed class RedisMessageWorkItem : IThreadPoolWorkItem
     }
 
     /// <summary>
-    /// ÓÃÓÚÒì²½µÈ´ı¹¤×÷ÏîÍê³É
+    /// ç”¨äºå¼‚æ­¥ç­‰å¾…å·¥ä½œé¡¹å®Œæˆã€‚
     /// </summary>
-    /// <returns></returns>
+    /// <returns>ç­‰å¾…ä»»åŠ¡</returns>
     public ValueTask WaitToCompleteAsync()
     {
         return _waiter.Task;
     }
 
+    /// <summary>
+    /// å®é™…çš„å¼‚æ­¥æ¶ˆæ¯å¤„ç†é€»è¾‘ï¼ŒåŒ…æ‹¬ååºåˆ—åŒ–ã€æŸ¥æ‰¾å¤„ç†å™¨ã€ä¸šåŠ¡å¤„ç†ã€ç¡®è®¤æ¶ˆæ¯å’Œå¼‚å¸¸å¤„ç†ã€‚
+    /// </summary>
     internal async Task ExecuteAsync()
     {
         try
         {
             var cloudEvent = JSON.Deserialize<CloudEvent>((byte[])Message["data"]!)!;
             var metadata = new CloudEventMetadata(ChannelContext.PubSubName, ChannelContext.Topic, cloudEvent.Type, cloudEvent.Source);
-            // ³¢ÊÔ´Ó×¢²á±íÖĞ»ñÈ¡´¦Àí³ÌĞò
+            // å°è¯•ä»æ³¨å†Œè¡¨ä¸­è·å–å¤„ç†ç¨‹åº
             if (!_context.Registry.TryGetHandler(metadata, out var handler))
             {
                 return;
             }
-            // ´¦Àí³ÌĞò
-            bool succeed = await handler.ProcessAsync(cloudEvent, _cancellationTokenSource.Token).ConfigureAwait(false);
+            // å¤„ç†ç¨‹åº
+            bool succeed = await handler.HandleAsync(cloudEvent, _cancellationTokenSource.Token).ConfigureAwait(false);
             if (succeed)
             {
-                // Èç¹û´¦Àí³É¹¦£¬È·ÈÏÏûÏ¢ÒÑ±»´¦Àí
+                // å¦‚æœå¤„ç†æˆåŠŸï¼Œç¡®è®¤æ¶ˆæ¯å·²è¢«å¤„ç†
                 await _context.Redis.StreamAcknowledgeAsync(
                     ChannelContext.Topic,
                     ChannelContext.ConsumerGroup,

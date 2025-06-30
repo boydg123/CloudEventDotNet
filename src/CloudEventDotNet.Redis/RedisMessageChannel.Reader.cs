@@ -1,23 +1,40 @@
-using System.Threading.Channels;
+ï»¿using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 
 namespace CloudEventDotNet.Redis;
 /// <summary>
-/// RedisÏûÏ¢Í¨µÀ¶ÁÈ¡Æ÷
+/// Redis æ¶ˆæ¯é€šé“è¯»å–å™¨ã€‚
+/// è´Ÿè´£ä»å†…å­˜ Channel ä¸­è¯»å– WorkItemï¼Œå¹¶å¼‚æ­¥æ‰§è¡Œæ¶ˆæ¯å¤„ç†ã€‚
 /// </summary>
 internal sealed partial class RedisMessageChannelReader
 {
-    // ¸Ã´úÂë¶¨ÒåÁËÒ»¸öÃûÎª RedisMessageChannelReader µÄÀà£¬Ö÷ÒªÓÃÓÚ´ÓÍ¨µÀÖĞ¶ÁÈ¡ RedisMessageWorkItem ¶ÔÏó²¢´¦ÀíËüÃÇ¡£ÆäÖ÷Òª¹¦ÄÜ°üÀ¨£º
-    // ´ÓÍ¨µÀÖĞ¶ÁÈ¡¹¤×÷Ïî²¢Ö´ĞĞ¡£
-    // ¼ÇÂ¼Ò£²âĞÅÏ¢ÒÔ¼à¿ØºÍµ÷ÊÔ¡£
-    // Ö§³ÖÈ¡Ïû²Ù×÷£¬ÄÜ¹»ÔÚÊÕµ½È¡ÏûÇëÇóÊ±ÓÅÑÅµØÍ£Ö¹¡£
-    // ´¦ÀíÒì³£Çé¿ö£¬È·±£ÏµÍ³µÄÎÈ¶¨ĞÔ¡£
-    private readonly ChannelReader<RedisMessageWorkItem> _channelReader; // ÓÃÓÚ´ÓÍ¨µÀÖĞ¶ÁÈ¡ RedisMessageWorkItem ¶ÔÏó
+    /// <summary>
+    /// å†…å­˜ Channel çš„è¯»å–ç«¯ã€‚
+    /// </summary>
+    private readonly ChannelReader<RedisMessageWorkItem> _channelReader;
+    /// <summary>
+    /// åœæ­¢ä¿¡å· Tokenã€‚
+    /// </summary>
     private readonly CancellationToken _stopToken;
-    private readonly Task _readLoop; // ÓÃÓÚÖ´ĞĞ¶ÁÈ¡Ñ­»·µÄÈÎÎñ¡£
+    /// <summary>
+    /// è¯»å–å¾ªç¯ä»»åŠ¡ã€‚
+    /// </summary>
+    private readonly Task _readLoop;
     //private readonly ILoggerFactory _loggerFactory;
+    /// <summary>
+    /// æ—¥å¿—è®°å½•å™¨ã€‚
+    /// </summary>
     private readonly ILogger _logger;
 
+    // è¯¥ä»£ç å®šä¹‰äº†ä¸€ä¸ªåä¸º RedisMessageChannelReader çš„ç±»ï¼Œä¸»è¦ç”¨äºä»é€šé“ä¸­è¯»å– RedisMessageWorkItem å¯¹è±¡å¹¶å¤„ç†å®ƒä»¬ã€‚å…¶ä¸»è¦åŠŸèƒ½åŒ…æ‹¬ï¼š
+    // ä»é€šé“ä¸­è¯»å–å·¥ä½œé¡¹å¹¶æ‰§è¡Œã€‚
+    // è®°å½•é¥æµ‹ä¿¡æ¯ä»¥ç›‘æ§å’Œè°ƒè¯•ã€‚
+    // æ”¯æŒå–æ¶ˆæ“ä½œï¼Œèƒ½å¤Ÿåœ¨æ”¶åˆ°å–æ¶ˆè¯·æ±‚æ—¶ä¼˜é›…åœ°åœæ­¢ã€‚
+    // å¤„ç†å¼‚å¸¸æƒ…å†µï¼Œç¡®ä¿ç³»ç»Ÿçš„ç¨³å®šæ€§ã€‚
+
+    /// <summary>
+    /// æ„é€ å‡½æ•°ï¼Œåˆå§‹åŒ–è¯»å–å™¨ã€‚
+    /// </summary>
     public RedisMessageChannelReader(
         ChannelReader<RedisMessageWorkItem> channelReader,
         ILoggerFactory loggerFactory,
@@ -31,20 +48,25 @@ internal sealed partial class RedisMessageChannelReader
         _logger = loggerFactory.CreateLogger<RedisMessageChannelReader>();
     }
 
+    /// <summary>
+    /// åœæ­¢è¯»å–å¾ªç¯ã€‚
+    /// </summary>
     public Task StopAsync()
     {
         return _readLoop;
     }
 
-    // ÓÃÓÚµÈ´ı¶ÁÈ¡Ñ­»·µÄÍê³É
+    /// <summary>
+    /// æ ¸å¿ƒè¯»å–å¾ªç¯ï¼Œä¸æ–­ä» Channel å–å‡º WorkItem å¹¶æ‰§è¡Œã€‚
+    /// </summary>
     private async Task ReadLoop()
     {
         try
         {
             _logger.LogInformation("Polling started.");
-            while (true) // ½øÈëÒ»¸öÎŞÏŞÑ­»·£¬³¢ÊÔ´ÓÍ¨µÀÖĞ¶ÁÈ¡¹¤×÷Ïî
+            while (true)
             {
-                // Èç¹û³É¹¦¶ÁÈ¡µ½¹¤×÷Ïî£¬¼ì²éÆäÊÇ·ñÒÑÆô¶¯£¬Èç¹ûÎ´Æô¶¯ÔòÖ´ĞĞ²¢¼ÇÂ¼Ò£²âĞÅÏ¢
+                // ä¼˜å…ˆå°è¯•è¯»å– WorkItem
                 if (_channelReader.TryRead(out var workItem))
                 {
                     if (!workItem.Started)
@@ -53,7 +75,7 @@ internal sealed partial class RedisMessageChannelReader
                         workItem.Execute();
                         _logger.LogTrace("Work item started");
                     }
-                    //µÈ´ı¹¤×÷ÏîÍê³É£¬Èç¹ûÎ´Íê³ÉÔò¼ÇÂ¼Ò£²âĞÅÏ¢²¢µÈ´ıÆäÍê³É
+                    // ç­‰å¾… WorkItem å®Œæˆ
                     var vt = workItem.WaitToCompleteAsync();
                     if (!vt.IsCompletedSuccessfully)
                     {
@@ -64,7 +86,7 @@ internal sealed partial class RedisMessageChannelReader
                 }
                 else
                 {
-                    // Èç¹ûÎ´¶ÁÈ¡µ½¹¤×÷Ïî£¬¼ì²éÈ¡ÏûÁîÅÆÊÇ·ñÒÑÇëÇóÈ¡Ïû£¬Èç¹ûÊÇÔò¼ÇÂ¼Ò£²âĞÅÏ¢²¢ÍË³öÑ­»·¡£
+                    // Channel æš‚æ— å¯è¯» WorkItemï¼Œæ£€æŸ¥æ˜¯å¦éœ€è¦é€€å‡º
                     if (_stopToken.IsCancellationRequested)
                     {
                         _logger.LogDebug("Reader stopped");
@@ -72,7 +94,7 @@ internal sealed partial class RedisMessageChannelReader
                     }
                     else
                     {
-                        // Èç¹ûÃ»ÓĞÈ¡ÏûÇëÇó£¬¼ÇÂ¼µÈ´ıÏÂÒ»¸ö¹¤×÷ÏîµÄÒ£²âĞÅÏ¢²¢µÈ´ıÍ¨µÀ¿É¶Á
+                        // ç­‰å¾…ä¸‹ä¸€ä¸ª WorkItem åˆ°æ¥
                         _logger.LogTrace("Waiting for next work item");
                         await _channelReader.WaitToReadAsync(_stopToken).ConfigureAwait(false);
                     }

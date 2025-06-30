@@ -6,23 +6,31 @@ using StackExchange.Redis;
 namespace CloudEventDotNet.Redis;
 
 /// <summary>
-/// RedisÏûÏ¢Í¨µÀ¹¤³§
+/// Redis æ¶ˆæ¯é€šé“å·¥å‚ã€‚
+/// è´Ÿè´£ä¸ºæ¯ä¸ª PubSub/Topic åˆ›å»ºå’Œç®¡ç† RedisMessageChannel å®ä¾‹ï¼Œå®ç°å¤š Topic çš„ç‹¬ç«‹æ¶ˆè´¹å’Œèµ„æºéš”ç¦»ã€‚
 /// </summary>
 internal class RedisMessageChannelFactory
 {
-    // Ö÷Òª¹¦ÄÜ£ºRedisMessageChannelFactory ÀàµÄÖ÷Òª¹¦ÄÜÊÇ´´½¨ºÍ¹ÜÀí Redis ÏûÏ¢Í¨µÀ¡£ËüÍ¨¹ıÒÀÀµ×¢Èë»ñÈ¡±ØÒªµÄÅäÖÃºÍ¹¤¾ß£¬È»ºó¸ù¾İ¸ø¶¨µÄ pubSubName ´´½¨ÏàÓ¦µÄ Redis
-    // ÏûÏ¢Í¨µÀÊı×é¡£Ã¿¸öÍ¨µÀ¶¼°üº¬ÏêÏ¸µÄÉÏÏÂÎÄĞÅÏ¢ºÍÒ£²â¼ÇÂ¼£¬ÒÔ±ã¸üºÃµØ¹ÜÀíºÍ¼à¿Ø Redis ÏûÏ¢µÄ¶©ÔÄºÍ´¦Àí.
-    // ¹Ø¼ü²½Öè£º
-    // 1. Í¨¹ıÒÀÀµ×¢Èë»ñÈ¡ IOptionsFactory<RedisSubscribeOptions>¡¢Registry¡¢IServiceScopeFactory ºÍ ILoggerFactory ÊµÀı¡£
-    // 2. ¸ù¾İ pubSubName ´´½¨ RedisSubscribeOptions ÊµÀı£¬²¢»ñÈ¡ ConnectionMultiplexer ºÍ Redis Êı¾İ¿âÊµÀı¡£
-    // 3. »ñÈ¡¶©ÔÄµÄÖ÷ÌâÁĞ±í£¬²¢ÎªÃ¿¸öÖ÷Ìâ´´½¨ RedisMessageChannel ÊµÀı¡£
-    // 4. ÎªÃ¿¸öÍ¨µÀ´´½¨ÏêÏ¸µÄÉÏÏÂÎÄĞÅÏ¢ºÍÒ£²â¼ÇÂ¼£¬×îÖÕ·µ»ØÕâĞ©Í¨µÀµÄÊı×é¡£
-
+    /// <summary>
+    /// Redis è®¢é˜…é…ç½®å·¥å‚ã€‚
+    /// </summary>
     private readonly IOptionsFactory<RedisSubscribeOptions> _optionsFactory;
+    /// <summary>
+    /// äº‹ä»¶æ³¨å†Œè¡¨ã€‚
+    /// </summary>
     private readonly Registry _registry;
+    /// <summary>
+    /// ä¾èµ–æ³¨å…¥ä½œç”¨åŸŸå·¥å‚ã€‚
+    /// </summary>
     private readonly IServiceScopeFactory _scopeFactory;
+    /// <summary>
+    /// æ—¥å¿—å·¥å‚ã€‚
+    /// </summary>
     private readonly ILoggerFactory _loggerFactory;
 
+    /// <summary>
+    /// æ„é€ å‡½æ•°ï¼Œæ³¨å…¥ä¾èµ–ã€‚
+    /// </summary>
     public RedisMessageChannelFactory(
         IOptionsFactory<RedisSubscribeOptions> optionsFactory,
         Registry registry,
@@ -36,29 +44,29 @@ internal class RedisMessageChannelFactory
     }
 
     /// <summary>
-    /// ´´½¨ Redis ÏûÏ¢Í¨µÀÊı×é
+    /// åˆ›å»ºæŒ‡å®š PubSub ä¸‹æ‰€æœ‰ Topic çš„ Redis æ¶ˆæ¯é€šé“ã€‚
     /// </summary>
-    /// <param name="pubSubName"></param>
-    /// <returns></returns>
+    /// <param name="pubSubName">PubSub åç§°</param>
+    /// <returns>æ‰€æœ‰ Topic çš„ RedisMessageChannel å®ä¾‹æ•°ç»„</returns>
     public RedisMessageChannel[] Create(string pubSubName)
     {
         var options = _optionsFactory.Create(pubSubName);
         var multiplexer = options.ConnectionMultiplexerFactory();
         var redis = multiplexer.GetDatabase(options.Database);
 
-        // »ñÈ¡¶©ÔÄµÄÖ÷ÌâÁĞ±í£¬²¢ÎªÃ¿¸öÖ÷Ìâµ÷ÓÃ Create ·½·¨´´½¨ RedisMessageChannel ÊµÀı£¬×îÖÕ·µ»ØÕâĞ©ÊµÀıµÄÊı×é
+        // è·å–æ‰€æœ‰å·²è®¢é˜…çš„ Topicï¼Œä¸ºæ¯ä¸ª Topic åˆ›å»º RedisMessageChannel
         return _registry.GetSubscribedTopics(pubSubName)
             .Select(topic => Create(pubSubName, topic, options, redis)).ToArray();
     }
 
     /// <summary>
-    /// ´´½¨µ¥¸ö Redis ÏûÏ¢Í¨µÀ
+    /// åˆ›å»ºå•ä¸ª Topic çš„ Redis æ¶ˆæ¯é€šé“ã€‚
     /// </summary>
-    /// <param name="pubSubName"></param>
-    /// <param name="topic"></param>
-    /// <param name="options"></param>
-    /// <param name="redis"></param>
-    /// <returns></returns>
+    /// <param name="pubSubName">PubSub åç§°</param>
+    /// <param name="topic">æ¶ˆæ¯ä¸»é¢˜</param>
+    /// <param name="options">è®¢é˜…é…ç½®</param>
+    /// <param name="redis">Redis æ•°æ®åº“å®ä¾‹</param>
+    /// <returns>RedisMessageChannel å®ä¾‹</returns>
     private RedisMessageChannel Create(
         string pubSubName,
         string topic,

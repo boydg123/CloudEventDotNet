@@ -4,62 +4,66 @@ using StackExchange.Redis;
 namespace CloudEventDotNet.Redis;
 
 /// <summary>
-/// Redis PubSub Ñ¡Ïî
+/// Redis å‘å¸ƒ/è®¢é˜…é€šç”¨é…ç½®é€‰é¡¹åŸºç±»ã€‚
+/// å°è£… Redis è¿æ¥å·¥å‚å’Œæ•°æ®åº“ç¼–å·ã€‚
 /// </summary>
 public abstract class RedisPubSubOptions
 {
     /// <summary>
-    /// Ò»¸öÓÃÓÚ½âÎö Redis ·¢²¼¶©ÔÄËùÊ¹ÓÃµÄ IConnectionMultiplexer µÄ¹¤³§¡£
+    /// Redis è¿æ¥å·¥å‚æ–¹æ³•ã€‚
+    /// ç”¨äºè·å– IConnectionMultiplexer å®ä¾‹ã€‚
     /// </summary>
     [Required]
     public Func<IConnectionMultiplexer> ConnectionMultiplexerFactory { get; set; } = default!;
 
     /// <summary>
-    /// Êı¾İ¿â
+    /// Redis æ•°æ®åº“ç¼–å·ã€‚
     /// </summary>
     public int Database { get; set; }
 }
 
 /// <summary>
-/// Redis ·¢²¼Ñ¡Ïî
+/// Redis å‘å¸ƒé…ç½®é€‰é¡¹ã€‚
+/// åŒ…å« Stream æœ€å¤§é•¿åº¦ç­‰å‚æ•°ã€‚
 /// </summary>
 public class RedisPublishOptions : RedisPubSubOptions
 {
     /// <summary>
-    /// ×î´óÁ÷ÖĞµÄÏîÄ¿Êı¡£ µ±Ö¸¶¨µÄ³¤¶È´ïµ½Ê±£¬¾ÉµÄÌõÄ¿½«×Ô¶¯ÌÔÌ­£¬ÒÔ±£³ÖÁ÷µÄ´óĞ¡Ê¼ÖÕ±£³Ö²»±ä¡£ Ä¬ÈÏÎªÎŞÏŞ¡£
+    /// Stream çš„æœ€å¤§é•¿åº¦ã€‚è¾¾åˆ°è¯¥é•¿åº¦æ—¶ï¼ŒRedis ä¼šè‡ªåŠ¨è£å‰ªä»¥æ§åˆ¶å†…å­˜å ç”¨ã€‚
+    /// é»˜è®¤ä¸º nullï¼ˆä¸é™åˆ¶ï¼‰ã€‚
     /// </summary>
     public int? MaxLength { get; set; }
 }
 
 /// <summary>
-/// Redis ¶©ÔÄÑ¡Ïî
+/// Redis è®¢é˜…é…ç½®é€‰é¡¹ã€‚
+/// åŒ…å«æ¶ˆè´¹è€…ç»„ã€æ‰¹é‡æ‹‰å–ã€å¹¶å‘ç­‰å‚æ•°ã€‚
 /// </summary>
 public class RedisSubscribeOptions : RedisPubSubOptions
 {
     /// <summary>
-    /// ¶©ÔÄÕßµÄÏû·ÑÕß×é
+    /// æ¶ˆè´¹è€…ç»„åç§°ã€‚
     /// </summary>
     [Required]
     public string ConsumerGroup { get; set; } = default!;
 
     /// <summary>
-    /// Ã¿´ÎÀ­È¥µÄ×î´ó CloudEvent ÊıÁ¿
+    /// æ¯æ‰¹æ¬¡æ‹‰å–çš„ CloudEvent æ•°é‡ã€‚
     /// </summary>
     public int PollBatchSize { get; set; } = 100;
 
     /// <summary>
-    /// ÂÖÑ¯ĞÂCloudEventµÄ¼ä¸ôÊ±¼ä£¬Ä¬ÈÏ15Ãë
+    /// æ‹‰å– CloudEvent çš„è½®è¯¢é—´éš”ï¼Œé»˜è®¤ 15 ç§’ã€‚
     /// </summary>
     public TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(15);
 
     /// <summary>
-    /// ±¾µØ½ø³Ì¶ÓÁĞÖĞÎ´´¦ÀíµÄCloudEventsµÄÏŞÖÆ¡£
+    /// å…è®¸åŒæ—¶å¤„ç†çš„æœ€å¤§ CloudEvent æ•°é‡ã€‚
     /// </summary>
     public int RunningWorkItemLimit { get; set; } = 128;
 
     /// <summary>
-    /// The amount time a CloudEvent must be pending before attempting to redeliver it. Defaults to "60s".
-    /// CloudEventÔÚ³¢ÊÔÖØĞÂ´«µİÖ®Ç°±ØĞë¹ÒÆğµÄÊ±¼ä¡£Ä¬ÈÏÖµÎª¡°60s¡±
+    /// CloudEvent åœ¨è¢«é‡æ–°æŠ•é€’å‰éœ€ç­‰å¾…çš„æœ€å°æŒ‚èµ·æ—¶é—´ï¼Œé»˜è®¤ 60 ç§’ã€‚
     /// </summary>
     public TimeSpan ProcessingTimeout { get; set; } = TimeSpan.FromSeconds(60);
 }

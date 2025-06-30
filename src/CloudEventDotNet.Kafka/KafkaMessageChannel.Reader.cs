@@ -1,17 +1,23 @@
-using System.Threading.Channels;
+ï»¿using System.Threading.Channels;
 using Confluent.Kafka;
 using Microsoft.Extensions.Logging;
 
 namespace CloudEventDotNet.Kafka;
 
 /// <summary>
-/// Kafka ÏûÏ¢Í¨µÀÏûÏ¢¶ÁÈ¡Æ÷
+/// Kafka æ¶ˆæ¯é€šé“è¯»å–å™¨ã€‚
+/// è´Ÿè´£ä»å†…å­˜é€šé“ï¼ˆChannelï¼‰ä¸­è¯»å–æ¶ˆæ¯å·¥ä½œé¡¹ï¼Œå¹¶å¼‚æ­¥æ‰§è¡Œå®ƒä»¬ã€‚
+/// è¿™æ˜¯æ¶ˆæ¯å¤„ç†çš„æ ¸å¿ƒå¾ªç¯ã€‚
 /// </summary>
 internal class KafkaMessageChannelReader
 {
-    private readonly Task _readLoop; // ÓÃÓÚÔËĞĞ¶ÁÈ¡Ñ­»·µÄÈÎÎñ
+    // è¯»å–å¾ªç¯çš„åå°ä»»åŠ¡
+    private readonly Task _readLoop;
+    // å†…å­˜é€šé“çš„è¯»å–ç«¯
     private readonly ChannelReader<KafkaMessageWorkItem> _channelReader;
+    // åœæ­¢ä»¤ç‰Œ
     private readonly CancellationToken _stopToken;
+    // æ—¥å¿—å®ä¾‹
     private readonly ILogger _logger;
 
     public KafkaMessageChannelReader(
@@ -23,18 +29,28 @@ internal class KafkaMessageChannelReader
         _channelReader = channelReader;
         _stopToken = stopToken;
 
-        _readLoop = Task.Run(ReadLoop, default); //Æô¶¯Ò»¸öºóÌ¨ÈÎÎñ _readLoop À´ÔËĞĞ ReadLoop ·½·¨
+        // å¯åŠ¨åå°ä»»åŠ¡æ¥æ‰§è¡Œè¯»å–å¾ªç¯
+        _readLoop = Task.Run(ReadLoop, default);
         _logger = loggerFactory.CreateLogger<KafkaMessageChannelReader>();
     }
 
-    // ÓÃÓÚ´æ´¢µ±Ç°´¦ÀíµÄ Kafka ÏûÏ¢µÄÆ«ÒÆÁ¿
+    /// <summary>
+    /// å½“å‰å·²æˆåŠŸå¤„ç†çš„æœ€æ–°æ¶ˆæ¯çš„åç§»é‡ã€‚
+    /// </summary>
     public TopicPartitionOffset? Offset { get; private set; }
 
+    /// <summary>
+    /// åœæ­¢è¯»å–å™¨ã€‚
+    /// </summary>
     public async Task StopAsync()
     {
         await _readLoop;
     }
 
+    /// <summary>
+    /// è¯»å–å¾ªç¯ã€‚
+    /// æŒç»­ä»é€šé“ä¸­è¯»å–å·¥ä½œé¡¹ï¼Œæ‰§è¡Œå¹¶ç­‰å¾…å…¶å®Œæˆï¼Œç„¶åæ›´æ–°åç§»é‡ã€‚
+    /// </summary>
     private async Task ReadLoop()
     {
         try
@@ -42,16 +58,17 @@ internal class KafkaMessageChannelReader
             _logger.LogDebug("Polling started");
             while (true)
             {
-                // ´ÓÍ¨µÀÖĞ¶ÁÈ¡ Kafka ÏûÏ¢¹¤×÷Ïî²¢´¦ÀíËüÃÇ
+                // å°è¯•ä»é€šé“ä¸­è¯»å–ä¸€ä¸ªå·¥ä½œé¡¹
                 if (_channelReader.TryRead(out var workItem))
                 {
-                    //Èç¹û³É¹¦¶ÁÈ¡µ½¹¤×÷Ïî£¬ÔòÖ´ĞĞ²¢µÈ´ıÆäÍê³É£¬Í¬Ê±¸üĞÂÆ«ÒÆÁ¿
+                    // å¦‚æœå·¥ä½œé¡¹å°šæœªå¯åŠ¨ï¼Œåˆ™å¯åŠ¨å®ƒ
                     if (!workItem.Started)
                     {
                         _logger.LogTrace("Work item not started, starting it");
                         workItem.Execute();
                         _logger.LogTrace("Work item started");
                     }
+                    // å¼‚æ­¥ç­‰å¾…å·¥ä½œé¡¹å¤„ç†å®Œæˆ
                     var vt = workItem.WaitToCompleteAsync();
                     if (!vt.IsCompletedSuccessfully)
                     {
@@ -59,12 +76,13 @@ internal class KafkaMessageChannelReader
                         await vt.ConfigureAwait(false);
                         _logger.LogTrace("Work item completed");
                     }
+                    // æ›´æ–°å·²å¤„ç†çš„åç§»é‡
                     Offset = workItem.TopicPartitionOffset;
                     _logger.LogTrace($"Checked offset {Offset.Offset.Value}");
                 }
                 else
                 {
-                    //Èç¹ûÃ»ÓĞ¶ÁÈ¡µ½¹¤×÷Ïî£¬¼ì²éÈ¡ÏûÁîÅÆÊÇ·ñ±»ÇëÇó£¬Èç¹ûÊÇÔòÍ£Ö¹Ñ­»·£¬·ñÔòµÈ´ıÏÂÒ»¸ö¹¤×÷Ïî
+                    // å¦‚æœé€šé“ä¸ºç©ºï¼Œæ£€æŸ¥æ˜¯å¦å·²è¯·æ±‚åœæ­¢
                     if (_stopToken.IsCancellationRequested)
                     {
                         _logger.LogDebug("Reader stopped");
@@ -72,6 +90,7 @@ internal class KafkaMessageChannelReader
                     }
                     else
                     {
+                        // ç­‰å¾…ä¸‹ä¸€ä¸ªå·¥ä½œé¡¹å¯è¯»
                         _logger.LogTrace("Waiting for next work item");
                         await _channelReader.WaitToReadAsync(_stopToken).ConfigureAwait(false);
                     }

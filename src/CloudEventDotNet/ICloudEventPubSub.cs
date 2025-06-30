@@ -1,15 +1,15 @@
-namespace CloudEventDotNet;
+ï»¿namespace CloudEventDotNet;
 
 /// <summary>
-/// CloudEventsµÄ·¢²¼Õß¡£
+/// CloudEventsçš„å‘å¸ƒè€…ã€‚
 /// </summary>
 public interface ICloudEventPubSub
 {
     /// <summary>
-    /// Ê¹ÓÃ×¢²áµÄÔªÊı¾İ·¢²¼CloudEvent
+    /// ä½¿ç”¨æ³¨å†Œçš„å…ƒæ•°æ®å‘å¸ƒCloudEvent
     /// </summary>
-    /// <typeparam name="TData">CloudEventµÄÊı¾İÀàĞÍ£¬±ØĞë±ê¼ÇÎª <see cref="CloudEventAttribute"/></typeparam>
-    /// <param name="data">CloudEventÊı¾İ</param>
+    /// <typeparam name="TData">CloudEventçš„æ•°æ®ç±»å‹ï¼Œå¿…é¡»æ ‡è®°ä¸º <see cref="CloudEventAttribute"/></typeparam>
+    /// <param name="data">CloudEventæ•°æ®</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
     Task PublishAsync<TData>(TData data);
 }

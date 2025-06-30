@@ -1,41 +1,43 @@
-namespace CloudEventDotNet;
+ï»¿namespace CloudEventDotNet;
 
 /// <summary>
-/// CloudEvent±ê¼Ç
+/// CloudEvent æ ‡è®°ç‰¹æ€§ã€‚
+/// ç”¨äºæ ‡æ³¨äº‹ä»¶æ•°æ®ç±»å‹ï¼ŒæŒ‡å®šäº‹ä»¶çš„ç±»å‹ã€æºã€ç›®æ ‡PubSubå’Œä¸»é¢˜ç­‰å…ƒæ•°æ®ä¿¡æ¯ã€‚
+/// è¿™äº›å…ƒæ•°æ®ç”¨äºäº‹ä»¶çš„è‡ªåŠ¨æ³¨å†Œã€è·¯ç”±å’Œåˆ†å‘ã€‚
 /// </summary>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
 public class CloudEventAttribute : Attribute
 {
     /// <summary>
-    /// CloudEvents <see href="https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md#type">'type'</see> attribute.
-    /// Type of occurrence which has happened.
-    /// Often this attribute is used for routing, observability, policy enforcement, etc.
-    /// CloudEventÀàĞÍ£¬¿ÉÓÃÓÚÂ·ÓÉ£¬¿É¹Û²ìĞÔ£¬²ßÂÔÇ¿ÖÆµÈ¡£
+    /// CloudEvents type å±æ€§ã€‚
+    /// äº‹ä»¶ç±»å‹ï¼Œç”¨äºæ ‡è¯†äº‹ä»¶çš„ä¸šåŠ¡å«ä¹‰ï¼Œå¸¸ç”¨äºè·¯ç”±ã€ç›‘æ§ã€ç­–ç•¥ç­‰åœºæ™¯ã€‚
     /// </summary>
     public string? Type { get; init; }
 
     /// <summary>
-    /// CloudEvents <see href="https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md#source">'source'</see> attribute.
-    /// CloudEventÔ´£¬ÃèÊöÊÂ¼şµÄ²úÉúÕß¡£Í¨³£°üº¬ÊÂ¼şÔ´µÄÀàĞÍ£¬×éÖ¯·¢²¼ÊÂ¼ş£¬ÊÂ¼ş²úÉúµÄ¹ı³Ì£¬ÒÔ¼°Ò»Ğ©Î¨Ò»±êÊ¶·û¡£
+    /// CloudEvents source å±æ€§ã€‚
+    /// äº‹ä»¶æºï¼Œæè¿°äº‹ä»¶çš„äº§ç”Ÿè€…ã€‚é€šå¸¸åŒ…å«æœåŠ¡åã€ä¸šåŠ¡åŸŸã€å”¯ä¸€æ ‡è¯†ç­‰ã€‚
     /// </summary>
     /// <remarks>
-    /// ÔÚ<see cref="PubSubBuilder"/>ÅäÖÃdefaultSource×÷ÎªÄ¬ÈÏÔ´.
+    /// å¦‚æœæœªæŒ‡å®šï¼Œä½¿ç”¨ <see cref="PubSubBuilder"/> é…ç½®çš„ defaultSource ä½œä¸ºé»˜è®¤å€¼ã€‚
     /// </remarks>
     public string? Source { get; init; }
 
     /// <summary>
-    /// CloudEvents½«·¢ËÍµ½µÄPubSubµÄÃû³Æ
+    /// äº‹ä»¶å°†å‘é€åˆ°çš„ PubSub åç§°ã€‚
+    /// ç”¨äºæŒ‡å®šæ¶ˆæ¯ä¸­é—´ä»¶ï¼ˆå¦‚ kafkaã€redis ç­‰ï¼‰ã€‚
     /// </summary>
     /// <remarks>
-    /// ÔÚ<see cref="PubSubBuilder"/>ÖĞµÄÅäÖÃdefaultPubSubName Ä¬ÈÏÃû³Æ.
+    /// å¦‚æœæœªæŒ‡å®šï¼Œä½¿ç”¨ <see cref="PubSubBuilder"/> é…ç½®çš„ defaultPubSubName ä½œä¸ºé»˜è®¤å€¼ã€‚
     /// </remarks>
     public string? PubSubName { get; init; }
 
     /// <summary>
-    /// CloudEvents½«·¢ËÍµ½µÄÖ÷Ìâ
+    /// äº‹ä»¶å°†å‘é€åˆ°çš„ä¸»é¢˜ã€‚
+    /// ç”¨äºæŒ‡å®šæ¶ˆæ¯çš„é€»è¾‘åˆ†ç»„ã€‚
     /// </summary>
     /// <remarks>
-    /// ÔÚ <see cref="PubSubBuilder"/>µÄÅäÖÃÖĞÊ¹ÓÃdefaultTopic ÅäÖÃÄ¬ÈÏÖ÷Ìâ.
+    /// å¦‚æœæœªæŒ‡å®šï¼Œä½¿ç”¨ <see cref="PubSubBuilder"/> é…ç½®çš„ defaultTopic ä½œä¸ºé»˜è®¤å€¼ã€‚
     /// </remarks>
     public string? Topic { get; init; }
 }

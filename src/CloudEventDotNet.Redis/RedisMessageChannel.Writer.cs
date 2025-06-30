@@ -1,29 +1,29 @@
-using System.Threading.Channels;
+ï»¿using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
 namespace CloudEventDotNet.Redis;
 
 /// <summary>
-/// RedisÏûÏ¢Í¨µÀĞ´ÈëÆ÷
+/// Redisï¿½ï¿½Ï¢Í¨ï¿½ï¿½Ğ´ï¿½ï¿½ï¿½ï¿½
 /// </summary>
 internal sealed class RedisMessageChannelWriter
 {
-    //Redis ÏûÏ¢Í¨µÀĞ´ÈëÆ÷£º¸ÃÀà¸ºÔğ´Ó Redis Êı¾İ¿âÖĞ¶ÁÈ¡ĞÂÏûÏ¢ºÍ´ı´¦ÀíÏûÏ¢£¬²¢½«ÕâĞ©ÏûÏ¢·Ö·¢µ½Í¨µÀÖĞ½øĞĞ´¦Àí
-    //Òì²½ÈÎÎñ¹ÜÀí£ºÍ¨¹ıÆô¶¯Á½¸öÒì²½ÈÎÎñ _pollNewMessagesLoop ºÍ _claimPendingMessagesLoop£¬ÊµÏÖ¶ÔĞÂÏûÏ¢ºÍ´ı´¦ÀíÏûÏ¢µÄÂÖÑ¯ºÍÈÏÁì
-    //ÏûÏ¢·Ö·¢£º½«¶ÁÈ¡µ½µÄÏûÏ¢·Ö·¢µ½Í¨µÀÖĞ£¬²¢Ê¹ÓÃÏß³Ì³Ø´¦ÀíÕâĞ©ÏûÏ¢¡£
-    //ÓÅÑÅÍ£Ö¹£ºÌá¹© StopAsync ·½·¨£¬ÓÃÓÚµÈ´ıËùÓĞÒì²½ÈÎÎñÍê³É£¬ÊµÏÖÓÅÑÅÍ£Ö¹¡£
-    //Í¨¹ıÕâĞ©¹¦ÄÜ£¬RedisMessageChannelWriter ÀàÓĞĞ§µØ¹ÜÀíÁË Redis ÏûÏ¢µÄ¶ÁÈ¡¡¢·Ö·¢ºÍ´¦Àí£¬È·±£ÁËÏµÍ³µÄÎÈ¶¨ĞÔºÍ¸ßĞ§ĞÔ¡£
+    //Redis æ¶ˆæ¯é€šé“å†™å…¥å™¨ï¼šè¯¥ç±»è´Ÿè´£ä» Redis æ•°æ®åº“ä¸­è¯»å–æ–°æ¶ˆæ¯å’Œå¾…å¤„ç†æ¶ˆæ¯ï¼Œå¹¶å°†è¿™äº›æ¶ˆæ¯åˆ†å‘åˆ°é€šé“ä¸­è¿›è¡Œå¤„ç†
+    //å¼‚æ­¥ä»»åŠ¡ç®¡ç†ï¼šé€šè¿‡å¯åŠ¨ä¸¤ä¸ªå¼‚æ­¥ä»»åŠ¡ _pollNewMessagesLoop å’Œ _claimPendingMessagesLoopï¼Œå®ç°å¯¹æ–°æ¶ˆæ¯å’Œå¾…å¤„ç†æ¶ˆæ¯çš„è½®è¯¢å’Œè®¤é¢†
+    //æ¶ˆæ¯åˆ†å‘ï¼šå°†è¯»å–åˆ°çš„æ¶ˆæ¯åˆ†å‘åˆ°é€šé“ä¸­ï¼Œå¹¶ä½¿ç”¨çº¿ç¨‹æ± å¤„ç†è¿™äº›æ¶ˆæ¯ã€‚
+    //ä¼˜é›…åœæ­¢ï¼šæä¾› StopAsync æ–¹æ³•ï¼Œç”¨äºç­‰å¾…æ‰€æœ‰å¼‚æ­¥ä»»åŠ¡å®Œæˆï¼Œå®ç°ä¼˜é›…åœæ­¢ã€‚
+    //é€šè¿‡è¿™äº›åŠŸèƒ½ï¼ŒRedisMessageChannelWriter ç±»æœ‰æ•ˆåœ°ç®¡ç†äº† Redis æ¶ˆæ¯çš„è¯»å–ã€åˆ†å‘å’Œå¤„ç†ï¼Œç¡®ä¿äº†ç³»ç»Ÿçš„ç¨³å®šæ€§å’Œé«˜æ•ˆæ€§ã€‚
 
-    private readonly RedisSubscribeOptions _options; // Redis¶©ÔÄÑ¡Ïî 
-    private readonly IDatabase _database; // RedisÊı¾İ¿â
-    private readonly RedisMessageChannelContext _channelContext; // RedisÏûÏ¢Í¨µÀÉÏÏÂÎÄ
-    private readonly ChannelWriter<RedisMessageWorkItem> _channelWriter; // RedisÏûÏ¢Í¨µÀĞ´ÈëÆ÷
-    private readonly RedisWorkItemContext _workItemContext; // Redis¹¤×÷ÏîÉÏÏÂÎÄ
+    private readonly RedisSubscribeOptions _options; // Redisï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ 
+    private readonly IDatabase _database; // Redisï¿½ï¿½ï¿½İ¿ï¿½
+    private readonly RedisMessageChannelContext _channelContext; // Redisï¿½ï¿½Ï¢Í¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    private readonly ChannelWriter<RedisMessageWorkItem> _channelWriter; // Redisï¿½ï¿½Ï¢Í¨ï¿½ï¿½Ğ´ï¿½ï¿½ï¿½ï¿½
+    private readonly RedisWorkItemContext _workItemContext; // Redisï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     private readonly ILogger _logger;
     private readonly CancellationToken _stopToken;
-    private readonly Task _pollNewMessagesLoop; // ÂÖÑ¯ĞÂÏûÏ¢Ñ­»·
-    private readonly Task _claimPendingMessagesLoop; // ÁìÈ¡´ı´¦ÀíÏûÏ¢Ñ­»·
+    private readonly Task _pollNewMessagesLoop; // ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½Ï¢Ñ­ï¿½ï¿½
+    private readonly Task _claimPendingMessagesLoop; // ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢Ñ­ï¿½ï¿½
 
     public RedisMessageChannelWriter(
         RedisSubscribeOptions options,
@@ -52,7 +52,7 @@ internal sealed class RedisMessageChannelWriter
     }
 
     /// <summary>
-    /// ĞÂÏûÏ¢ÂÖÑ¯Ñ­»·
+    /// ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ñ¯Ñ­ï¿½ï¿½
     /// </summary>
     /// <returns></returns>
     private async Task PollNewMessagesLoop()
@@ -62,7 +62,7 @@ internal sealed class RedisMessageChannelWriter
             _logger.LogDebug("Started fetch new messages loop");
             try
             {
-                // ´´½¨Ïû·ÑÕß×é£¬Èç¹ûÏû·ÑÕß×éÒÑ´æÔÚÔò²¶»ñÒì³£²¢¼ÌĞø
+                // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½é£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ´ï¿½ï¿½ï¿½ï¿½ò²¶»ï¿½ï¿½ì³£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                 await _database.StreamCreateConsumerGroupAsync(
                     _channelContext.Topic,
                     _channelContext.ConsumerGroup,
@@ -75,7 +75,7 @@ internal sealed class RedisMessageChannelWriter
 
             while (!_stopToken.IsCancellationRequested)
             {
-                // Ñ­»·¶ÁÈ¡ĞÂÏûÏ¢£¬Èç¹ûÓĞÏûÏ¢Ôò·Ö·¢£¬·ñÔòµÈ´ıÒ»¶ÎÊ±¼äºó¼ÌĞøÂÖÑ¯
+                // Ñ­ï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È´ï¿½Ò»ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¯
                 var messages = await _database.StreamReadGroupAsync(
                     _channelContext.Topic,
                     _channelContext.ConsumerGroup,
@@ -104,8 +104,8 @@ internal sealed class RedisMessageChannelWriter
     }
 
     /// <summary>
-    /// ÁìÈ¡´ı´¦ÀíÏûÏ¢Ñ­»·
-    /// Ñ­»·ÈÏÁì´ı´¦ÀíÏûÏ¢£¬Èç¹ûÏûÏ¢³¬Ê±ÔòÈÏÁì²¢·Ö·¢£¬·ñÔòµÈ´ıÒ»¶ÎÊ±¼äºó¼ÌĞøÂÖÑ¯
+    /// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢Ñ­ï¿½ï¿½
+    /// Ñ­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ì²¢ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È´ï¿½Ò»ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¯
     /// </summary>
     /// <returns></returns>
 
@@ -171,7 +171,7 @@ internal sealed class RedisMessageChannelWriter
     }
 
     /// <summary>
-    /// ¸ºÔğ½«ÏûÏ¢·Ö·¢µ½Í¨µÀÖĞ£¬²¢Ê¹ÓÃÏß³Ì³Ø´¦Àí¹¤×÷Ïî¡£
+    /// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½Ö·ï¿½ï¿½ï¿½Í¨ï¿½ï¿½ï¿½Ğ£ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½ß³Ì³Ø´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½î¡£
     /// </summary>
     /// <param name="messages"></param>
     /// <returns></returns>

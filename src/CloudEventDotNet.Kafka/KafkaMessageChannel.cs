@@ -1,19 +1,28 @@
-using System.Threading.Channels;
+﻿using System.Threading.Channels;
 using Confluent.Kafka;
 using Microsoft.Extensions.Logging;
 
 namespace CloudEventDotNet.Kafka;
 
 /// <summary>
-/// Kafka��Ϣͨ��
+/// Kafka 消息通道。
+/// 负责接收来自消费者的消息，并将其放入一个内存通道（Channel）中，
+/// 以便进行异步、有序、并发控制的消息处理。
+/// 每个 Kafka 分区对应一个消息通道实例。
 /// </summary>
 internal class KafkaMessageChannel
 {
-    private readonly Channel<KafkaMessageWorkItem> _channel; //���ڴ洢 Kafka ��Ϣ�������ͨ��
-    private readonly CancellationTokenSource _stopTokenSource = new(); //����ֹͣ��Ϣͨ���� CancellationTokenSource
-    private readonly KafkaMessageChannelContext _channelContext; //��Ϣͨ��������
-    private readonly KafkaWorkItemContext _workItemContext; //������������
+    // 内存通道，用于存储待处理的消息工作项
+    private readonly Channel<KafkaMessageWorkItem> _channel;
+    // 停止令牌源，用于优雅关闭
+    private readonly CancellationTokenSource _stopTokenSource = new();
+    // 通道上下文信息
+    private readonly KafkaMessageChannelContext _channelContext;
+    // 工作项上下文信息
+    private readonly KafkaWorkItemContext _workItemContext;
+    // 日志工厂
     private readonly ILoggerFactory _loggerFactory;
+    // 日志实例
     private readonly ILogger _logger;
 
     public KafkaMessageChannel(
@@ -24,9 +33,10 @@ internal class KafkaMessageChannel
     {
         _loggerFactory = loggerFactory;
         _logger = loggerFactory.CreateLogger<KafkaMessageChannel>();
+        // 根据配置创建有界或无界通道
         if (options.RunningWorkItemLimit > 0)
         {
-            // �����н�(������)ͨ��
+            // 有界通道，用于限制并发处理的消息数量
             _channel = Channel.CreateBounded<KafkaMessageWorkItem>(new BoundedChannelOptions(options.RunningWorkItemLimit)
             {
                 SingleReader = true,
@@ -36,7 +46,7 @@ internal class KafkaMessageChannel
         }
         else
         {
-            // �����޽�(������)ͨ�� - ���ܻ�ľ��ڴ���Դ
+            // 无界通道，不限制并发（可能消耗较多内存）
             _channel = Channel.CreateUnbounded<KafkaMessageWorkItem>(new UnboundedChannelOptions
             {
                 SingleReader = true,
@@ -53,12 +63,15 @@ internal class KafkaMessageChannel
         _workItemContext = workItemContext;
     }
 
+    /// <summary>
+    /// 通道是否活动。
+    /// </summary>
     public bool IsActive { get; }
 
     /// <summary>
-    /// ֹͣд��
+    /// 停止通道。
     /// </summary>
-    /// <returns></returns>
+    /// <returns>异步任务</returns>
     public Task StopAsync()
     {
         _stopTokenSource.Cancel();
@@ -66,9 +79,9 @@ internal class KafkaMessageChannel
     }
 
     /// <summary>
-    /// д����Ϣ��Channel
+    /// 将 Kafka 消息分发到通道中。
     /// </summary>
-    /// <param name="message"></param>
+    /// <param name="message">从 Kafka 拉取到的原始消息</param>
     public void DispatchMessage(ConsumeResult<byte[], byte[]> message)
     {
         var workItem = new KafkaMessageWorkItem(
@@ -77,12 +90,15 @@ internal class KafkaMessageChannel
             _loggerFactory,
             message);
 
+        // 尝试非阻塞写入，失败则异步阻塞写入
         if (!_channel.Writer.TryWrite(workItem))
         {
             _channel.Writer.WriteAsync(workItem).AsTask().GetAwaiter().GetResult();
         }
-        //ThreadPool.UnsafeQueueUserWorkItem(workItem, false);
     }
 
+    /// <summary>
+    /// 通道读取器。
+    /// </summary>
     public KafkaMessageChannelReader Reader { get; }
 }

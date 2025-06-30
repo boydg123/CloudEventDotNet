@@ -1,17 +1,17 @@
-
+ï»¿
 namespace CloudEventDotNet;
 
 /// <summary>
-/// CloudEvent<typeparamref name="TData"/> ´¦ÀíÆ÷
+/// CloudEvent<typeparamref name="TData"/> å¤„ç†å™¨
 /// </summary>
 /// <typeparam name="TData">The data type of the registered CloudEvent, it must has a <see cref="CloudEventAttribute"/> attribute</typeparam>
 public interface ICloudEventHandler<TData>
 {
     /// <summary>
-    /// ´¦ÀíCloudEvent<typeparamref name="TData"/>µÄÒì²½·½·¨
+    /// å¤„ç†CloudEvent<typeparamref name="TData"/>çš„å¼‚æ­¥æ–¹æ³•
     /// </summary>
-    /// <param name="cloudEvent">Òª´¦ÀíµÄCloudEvent¶ÔÏó</param>
-    /// <param name="token">Òì²½²Ù×÷µÄÈ¡Ïû±ê¼Ç</param>
+    /// <param name="cloudEvent">è¦å¤„ç†çš„CloudEventå¯¹è±¡</param>
+    /// <param name="token">å¼‚æ­¥æ“ä½œçš„å–æ¶ˆæ ‡è®°</param>
     /// <returns></returns>
     Task HandleAsync(CloudEvent<TData> cloudEvent, CancellationToken token);
 }

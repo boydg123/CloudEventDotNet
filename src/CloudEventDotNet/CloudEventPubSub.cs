@@ -4,16 +4,29 @@ using Microsoft.Extensions.Options;
 namespace CloudEventDotNet;
 
 /// <summary>
-/// ÊµÏÖ <see cref="ICloudEventPubSub"/>
+/// CloudEvent å‘å¸ƒ/è®¢é˜…æ ¸å¿ƒå®ç°ã€‚
+/// è´Ÿè´£å°†äº‹ä»¶æ•°æ®å°è£…ä¸º CloudEvent å¹¶å‘å¸ƒåˆ°å¯¹åº”çš„æ¶ˆæ¯ä¸­é—´ä»¶ã€‚
 /// </summary>
 internal sealed class CloudEventPubSub : ICloudEventPubSub
 {
+    // PubSub é…ç½®é€‰é¡¹
     private readonly PubSubOptions _options;
+    // å‘å¸ƒè€…å·¥å‚å­—å…¸ï¼Œkeyä¸ºPubSubåç§°ï¼Œvalueä¸ºå…·ä½“å‘å¸ƒè€…å®ä¾‹
     private readonly Dictionary<string, ICloudEventPublisher> _publishers;
+    // æ—¥å¿—å·¥å‚
     private readonly ILoggerFactory _loggerFactory;
+    // æ—¥å¿—å®ä¾‹
     private readonly ILogger _logger;
+    // æ³¨å†Œä¸­å¿ƒï¼Œè´Ÿè´£äº‹ä»¶å…ƒæ•°æ®å’Œå¤„ç†å™¨çš„æŸ¥æ‰¾
     private readonly Registry _registry;
 
+    /// <summary>
+    /// æ„é€ å‡½æ•°ï¼Œæ³¨å…¥ä¾èµ–é¡¹ã€‚
+    /// </summary>
+    /// <param name="services">ä¾èµ–æ³¨å…¥å®¹å™¨</param>
+    /// <param name="registry">æ³¨å†Œä¸­å¿ƒ</param>
+    /// <param name="options">å‘å¸ƒ/è®¢é˜…é…ç½®</param>
+    /// <param name="loggerFactory">æ—¥å¿—å·¥å‚</param>
     public CloudEventPubSub(
         IServiceProvider services,
         Registry registry,
@@ -22,27 +35,28 @@ internal sealed class CloudEventPubSub : ICloudEventPubSub
     {
         _options = options.Value;
         _loggerFactory = loggerFactory;
+        // é€šè¿‡å·¥å‚æ–¹æ³•åˆ›å»ºæ‰€æœ‰å·²æ³¨å†Œçš„å‘å¸ƒè€…å®ä¾‹
         _publishers = _options.PublisherFactoris.ToDictionary(kvp => kvp.Key, kvp => kvp.Value(services));
         _logger = loggerFactory.CreateLogger<CloudEventPubSub>();
         _registry = registry;
-
     }
 
     /// <summary>
-    /// ·¢²¼ÊÂ¼ş
+    /// å‘å¸ƒäº‹ä»¶ã€‚
+    /// å°†å¼ºç±»å‹æ•°æ®å°è£…ä¸º CloudEventï¼Œå¹¶è·¯ç”±åˆ°å¯¹åº”çš„æ¶ˆæ¯ä¸­é—´ä»¶ã€‚
     /// </summary>
-    /// <typeparam name="TData"></typeparam>
-    /// <param name="data"></param>
-    /// <returns></returns>
+    /// <typeparam name="TData">äº‹ä»¶æ•°æ®ç±»å‹</typeparam>
+    /// <param name="data">äº‹ä»¶æ•°æ®</param>
+    /// <returns>å¼‚æ­¥ä»»åŠ¡</returns>
     public async Task PublishAsync<TData>(TData data)
     {
-        // »ñÈ¡Ê±¼äÀàĞÍ
+        // è·å–æ•°æ®ç±»å‹
         var dataType = typeof(TData);
 
-        // »ñÈ¡ÔªÊı¾İ
+        // æŸ¥æ‰¾äº‹ä»¶å…ƒæ•°æ®ï¼ˆå¦‚ topicã€pubsub åç§°ç­‰ï¼‰
         var metadata = _registry.GetMetadata(dataType);
 
-        // ¹¹½¨ CloudEvent
+        // æ„å»º CloudEvent å¯¹è±¡
         var cloudEvent = new CloudEvent<TData>(
             Id: Guid.NewGuid().ToString(),
             Source: metadata.Source,
@@ -52,22 +66,12 @@ internal sealed class CloudEventPubSub : ICloudEventPubSub
             DataSchema: null,
             Subject: null
         );
-        // using var activity = CloudEventPublishTelemetry.OnCloudEventPublishing(metadata, cloudEvent);
-        _logger.LogDebug($"Publishing cloud event: {JSON.Serialize(cloudEvent)}, Metadata: {JSON.Serialize(metadata)}");
+        _logger.LogDebug("Publishing cloud event: {cloudEvent}, Metadata: {metadata}", JSON.Serialize(cloudEvent), JSON.Serialize(metadata));
 
-        // ·¢²¼ÊÂ¼ş
+        // è·¯ç”±åˆ°å¯¹åº”çš„å‘å¸ƒè€…å¹¶å‘å¸ƒ
         var publisher = _publishers[metadata.PubSubName];
         await publisher.PublishAsync(metadata.Topic, cloudEvent).ConfigureAwait(false);
 
-        //ConfigureAwait(false) È·±£Òì²½·½·¨ÔÚµ±Ç°Ïß³ÌÖĞÖ´ĞĞ
-        //false£º±íÊ¾ÔÚµÈ´ıÈÎÎñÍê³ÉÊ±£¬²»ĞèÒª·µ»Øµ½Ô­À´µÄÍ¬²½ÉÏÏÂÎÄ¡£ÕâÒâÎ¶×ÅÒì²½²Ù×÷²»»á³¢ÊÔÔÚÔ­Ê¼ÉÏÏÂÎÄÖĞ¼ÌĞøÖ´ĞĞ£¬´Ó¶ø±ÜÃâÁËÒ»Ğ©Ç±ÔÚµÄĞÔÄÜÎÊÌâºÍËÀËøÇé¿ö¡£
-        //Ê¹ÓÃ³¡¾°
-        //Ìá¸ßĞÔÄÜ£ºÔÚ²»ĞèÒª·µ»Øµ½Ô­Ê¼Í¬²½ÉÏÏÂÎÄµÄÇé¿öÏÂ£¬Ê¹ÓÃ.ConfigureAwait(false) ¿ÉÒÔ¼õÉÙÏß³ÌÇĞ»»µÄ¿ªÏú£¬Ìá¸ßÒì²½²Ù×÷µÄĞÔÄÜ¡£
-        //±ÜÃâËÀËø£ºÔÚÄ³Ğ©Çé¿öÏÂ£¬Èç¹û²»Ê¹ÓÃ.ConfigureAwait(false)£¬Òì²½·½·¨¿ÉÄÜ»áÔÚµÈ´ıÈÎÎñÍê³ÉÊ±³¢ÊÔ·µ»Øµ½Ô­Ê¼Í¬²½ÉÏÏÂÎÄ£¬Õâ¿ÉÄÜµ¼ÖÂËÀËø¡£
-        //true ÔÚÒ»Ğ©UIÏß³ÌÖĞ£¬ĞèÒª·µ»Øµ½µ±Ç°µÄUIÏß³Ì
-
-        _logger.LogDebug($"Published CloudEvent:{JSON.Serialize(metadata)}");
-
-        // CloudEventPublishTelemetry.OnCloudEventPublished(metadata);
+        _logger.LogDebug("Published CloudEvent:{metadata}", JSON.Serialize(metadata));
     }
 }

@@ -1,18 +1,24 @@
-using System.Text.Json;
+ï»¿using System.Text.Json;
 using Confluent.Kafka;
 using Microsoft.Extensions.Logging;
 
 namespace CloudEventDotNet.Kafka;
 
 /// <summary>
-/// KafkaÏûÏ¢´¦Àí¹¤×÷Ïî
+/// Kafka æ¶ˆæ¯å¤„ç†å·¥ä½œé¡¹ã€‚
+/// å°è£…äº†ä» Kafka æ‹‰å–åˆ°çš„å•ä¸ªæ¶ˆæ¯ï¼Œå¹¶è´Ÿè´£å…¶å¤„ç†ã€ååºåˆ—åŒ–ã€è°ƒç”¨äº‹ä»¶å¤„ç†å™¨ã€å¤±è´¥é‡å‘ç­‰é€»è¾‘ã€‚
 /// </summary>
 internal sealed class KafkaMessageWorkItem : IThreadPoolWorkItem
 {
-    private readonly KafkaMessageChannelContext _channelContext; // ÏûÏ¢Í¨µÀ
-    private readonly KafkaWorkItemContext _context; // 
+    // é€šé“ä¸Šä¸‹æ–‡
+    private readonly KafkaMessageChannelContext _channelContext;
+    // å·¥ä½œé¡¹ä¸Šä¸‹æ–‡
+    private readonly KafkaWorkItemContext _context;
+    // æ—¥å¿—å®ä¾‹
     private readonly ILogger _logger;
-    private readonly ConsumeResult<byte[], byte[]> _message; // ÏûÏ¢
+    // Kafka åŸå§‹æ¶ˆæ¯
+    private readonly ConsumeResult<byte[], byte[]> _message;
+    // åœæ­¢ä»¤ç‰Œæº
     private readonly CancellationTokenSource _cancellationTokenSource = new();
 
     internal KafkaMessageWorkItem(
@@ -27,15 +33,19 @@ internal sealed class KafkaMessageWorkItem : IThreadPoolWorkItem
         _message = message;
     }
 
-    // ÓëÏûÏ¢¹ØÁªµÄÖ÷Ìâ·ÖÇøÆ«ÒÆÁ¿
+    // æ¶ˆæ¯çš„ Kafka åˆ†åŒºåç§»é‡
     public TopicPartitionOffset TopicPartitionOffset => _message.TopicPartitionOffset;
 
-    public bool Started => _started == 1; // ÓÃÓÚ¼ì²éÏûÏ¢´¦ÀíÊÇ·ñÒÑ¾­¿ªÊ¼
+    // æ ‡è®°å·¥ä½œé¡¹æ˜¯å¦å·²å¼€å§‹æ‰§è¡Œ
+    public bool Started => _started == 1;
     private int _started = 0;
 
+    /// <summary>
+    /// æ‰§è¡Œå·¥ä½œé¡¹ã€‚ç”±çº¿ç¨‹æ± è°ƒç”¨ã€‚
+    /// </summary>
     public void Execute()
     {
-        // È·±£ExecuteAsyncÖ»±»µ÷ÓÃÒ»´Î
+        // ç¡®ä¿ ExecuteAsync åªè¢«è°ƒç”¨ä¸€æ¬¡
         if (Interlocked.CompareExchange(ref _started, 1, 0) == 0)
         {
             _ = ExecuteAsync();
@@ -46,35 +56,41 @@ internal sealed class KafkaMessageWorkItem : IThreadPoolWorkItem
         }
     }
 
+    // ç”¨äºç­‰å¾…ä»»åŠ¡å®Œæˆçš„ç­‰å¾…å™¨
     private readonly WorkItemWaiter _waiter = new();
     /// <summary>
-    /// ÓÃÓÚµÈ´ıÒì²½²Ù×÷Íê³É
+    /// å¼‚æ­¥ç­‰å¾…å·¥ä½œé¡¹å¤„ç†å®Œæˆã€‚
     /// </summary>
-    /// <returns></returns>
+    /// <returns>ValueTask</returns>
     public ValueTask WaitToCompleteAsync()
     {
         return _waiter.Task;
     }
 
+    /// <summary>
+    /// å¼‚æ­¥æ‰§è¡Œæ¶ˆæ¯å¤„ç†çš„æ ¸å¿ƒé€»è¾‘ã€‚
+    /// </summary>
     internal async Task ExecuteAsync()
     {
         try
         {
+            // ååºåˆ—åŒ–ä¸ºé€šç”¨ CloudEvent
             var cloudEvent = JSON.Deserialize<CloudEvent>(_message.Message.Value)!;
+            // æ„å»ºå…ƒæ•°æ®
             var metadata = new CloudEventMetadata(_channelContext.PubSubName, _message.Topic, cloudEvent.Type, cloudEvent.Source);
-            // ³¢ÊÔ´Ó×¢²á±íÖĞ»ñÈ¡´¦Àí³ÌĞò
+            // æŸ¥æ‰¾å¯¹åº”çš„äº‹ä»¶å¤„ç†å™¨
             if (!_context.Registry.TryGetHandler(metadata, out var handler))
             {
                 _logger.LogDebug($"No handler for {metadata}, ignored");
                 return;
             }
-            // Èç¹ûÕÒµ½´¦Àí³ÌĞò£¬Òì²½´¦ÀíÏûÏ¢¡£
-            bool succeed = await handler.ProcessAsync(cloudEvent, _cancellationTokenSource.Token).ConfigureAwait(false);
+            // è°ƒç”¨å¤„ç†å™¨
+            bool succeed = await handler.HandleAsync(cloudEvent, _cancellationTokenSource.Token).ConfigureAwait(false);
             _logger.LogDebug($"messaging.kafka.client_id:{_channelContext.ConsumerName}.messaging.kafka.consumer_group:{_channelContext.ConsumerGroup}");
 
             if (!succeed)
             {
-                // Èç¹û´¦ÀíÊ§°Ü£¬ÖØĞÂ·¢ËÍÏûÏ¢
+                // å¦‚æœå¤„ç†å¤±è´¥ï¼Œåˆ™é‡æ–°å‘é€æ¶ˆæ¯
                 await _context.Producer.ReproduceAsync(_message).ConfigureAwait(false);
             }
         }
@@ -84,6 +100,7 @@ internal sealed class KafkaMessageWorkItem : IThreadPoolWorkItem
         }
         finally
         {
+            // æ ‡è®°å·¥ä½œé¡¹å®Œæˆ
             _waiter.SetResult();
         }
     }

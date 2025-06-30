@@ -1,22 +1,41 @@
-using Confluent.Kafka;
+ï»¿using Confluent.Kafka;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace CloudEventDotNet.Kafka;
 
 /// <summary>
-/// Kafka ×îÉÙÒ»´ÎÏûÊµÏÖ
+/// Kafka è‡³å°‘ä¸€æ¬¡æŠ•é€’æ¶ˆè´¹è€…å®ç°ã€‚
+/// æ ¸å¿ƒæ€æƒ³ï¼šå¯é æ€§ä¼˜å…ˆã€‚æ¶ˆè´¹è€…åœ¨ä¸šåŠ¡é€»è¾‘æˆåŠŸå¤„ç†å®Œæ¶ˆæ¯åï¼Œæ‰æ‰‹åŠ¨æäº¤åç§»é‡ã€‚
+/// è¿™èƒ½ç¡®ä¿å³ä½¿åœ¨åº”ç”¨å´©æºƒæˆ–å¤„ç†å¤±è´¥æ—¶ï¼Œæ¶ˆæ¯ä¹Ÿä¸ä¼šä¸¢å¤±ï¼ˆé‡å¯åä¼šé‡æ–°æ¶ˆè´¹ï¼‰ï¼Œä½†å¯èƒ½å¯¼è‡´æ¶ˆæ¯é‡å¤å¤„ç†ã€‚
+/// 
+/// å®ç°å…³é”®ï¼š
+/// 1. EnableAutoCommit = false: ç¦ç”¨è‡ªåŠ¨æäº¤ï¼Œæ”¹ä¸ºæ‰‹åŠ¨æ§åˆ¶ã€‚
+/// 2. åˆ†åŒºé€šé“ï¼ˆKafkaMessageChannelï¼‰ï¼šä¸ºæ¯ä¸ªåˆ†åŒºç»´æŠ¤ä¸€ä¸ªç‹¬ç«‹çš„å†…å­˜é˜Ÿåˆ—ï¼Œä¿è¯æ¶ˆæ¯æŒ‰é¡ºåºå¤„ç†ã€‚
+/// 3. æ‰‹åŠ¨æäº¤åç§»é‡ï¼šåœ¨é€šé“ä¸­çš„æ¶ˆæ¯è¢«ç¡®è®¤å¤„ç†æˆåŠŸåï¼Œæ‰åœ¨ç‹¬ç«‹çš„æäº¤å¾ªç¯ï¼ˆCommitLoopï¼‰ä¸­æäº¤å…¶åç§»é‡ã€‚
+/// 
+/// æ¶ˆæ¯å¤„ç†æˆåŠŸåæ‰‹åŠ¨æäº¤åç§»é‡ï¼Œä¿è¯æ¶ˆæ¯è‡³å°‘è¢«å¤„ç†ä¸€æ¬¡ã€‚
+/// å¯é æ€§é«˜ï¼Œé€‚ç”¨äºä¸èƒ½ä¸¢å¤±æ¶ˆæ¯çš„åœºæ™¯ã€‚
 /// </summary>
 internal sealed class KafkaAtLeastOnceConsumer : ICloudEventSubscriber
 {
-    private readonly IConsumer<byte[], byte[]> _consumer; // Kafka Ïû·ÑÕß
-    private readonly KafkaWorkItemContext _workItemContext; // ÏûÏ¢´¦ÀíÉÏÏÂÎÄ
-    private readonly string[] _topics; // ¶©ÔÄµÄÖ÷Ìâ
-    private readonly string _pubSubName; // ·¢²¼¶©ÔÄÃû³Æ
-    private readonly KafkaSubscribeOptions _options; // ¶©ÔÄÑ¡Ïî
+    // Confluent.Kafka æ¶ˆè´¹è€…å®ä¾‹
+    private readonly IConsumer<byte[], byte[]> _consumer;
+    // å·¥ä½œé¡¹ä¸Šä¸‹æ–‡ï¼ŒåŒ…å«æ³¨å†Œä¸­å¿ƒå’Œé‡å‘ç”Ÿäº§è€…
+    private readonly KafkaWorkItemContext _workItemContext;
+    // è¦è®¢é˜…çš„ä¸»é¢˜åˆ—è¡¨
+    private readonly string[] _topics;
+    // PubSub åç§°
+    private readonly string _pubSubName;
+    // è®¢é˜…é…ç½®
+    private readonly KafkaSubscribeOptions _options;
+    // æ—¥å¿—å·¥å‚
     private readonly ILoggerFactory _loggerFactory;
-    private readonly Dictionary<TopicPartition, KafkaMessageChannel> _channels = new(); // Ö÷Ìâ·ÖÇøÏûÏ¢Í¨µÀ
-    private readonly CancellationTokenSource _stopTokenSource = new(); // È¡ÏûÁîÅÆÔ´
+    // åˆ†åŒºåˆ°æ¶ˆæ¯é€šé“çš„æ˜ å°„
+    private readonly Dictionary<TopicPartition, KafkaMessageChannel> _channels = new();
+    // åœæ­¢ä»¤ç‰Œæº
+    private readonly CancellationTokenSource _stopTokenSource = new();
+    // æ—¥å¿—å®ä¾‹
     private readonly ILogger _logger;
     public KafkaAtLeastOnceConsumer(
         string pubSubName,
@@ -30,22 +49,23 @@ internal sealed class KafkaAtLeastOnceConsumer : ICloudEventSubscriber
         _loggerFactory = loggerFactory;
         _logger = loggerFactory.CreateLogger<KafkaAtLeastOnceConsumer>();
 
+        // ç¦ç”¨è‡ªåŠ¨æäº¤ï¼Œæ”¹ä¸ºæ‰‹åŠ¨æäº¤
         _options.ConsumerConfig.EnableAutoCommit = false;
         _consumer = new ConsumerBuilder<byte[], byte[]>(_options.ConsumerConfig)
-            .SetErrorHandler((_, e) => _logger.LogError("Consumer error: {e}", e)) // ´íÎó´¦Àí
-            .SetPartitionsAssignedHandler((c, partitions) =>  // ·ÖÇø·ÖÅä´¦Àí
+            .SetErrorHandler((_, e) => _logger.LogError("Consumer error: {e}", e))
+            .SetPartitionsAssignedHandler((c, partitions) =>
             {
                 _logger.LogDebug("Partitions assgined: {partitions}", partitions);
                 UpdateChannels(partitions);
             })
-            .SetPartitionsLostHandler((c, partitions) => _logger.LogDebug("Partitions lost: {partitions}", partitions)) // ·ÖÇø¶ªÊ§´¦Àí
-            .SetPartitionsRevokedHandler((c, partitions) => _logger.LogDebug("Partitions revoked: {partitions}", partitions)) // ·ÖÇø³·Ïú´¦Àí
+            .SetPartitionsLostHandler((c, partitions) => _logger.LogDebug("Partitions lost: {partitions}", partitions))
+            .SetPartitionsRevokedHandler((c, partitions) => _logger.LogDebug("Partitions revoked: {partitions}", partitions))
             .SetLogHandler((_, log) =>
             {
                 int level = log.LevelAs(LogLevelType.MicrosoftExtensionsLogging);
                 _logger.Log(LogLevel.Debug, "Consumer log: {message}", log);
-            }) // ÈÕÖ¾´¦Àí
-            .Build(); // ´´½¨Ïû·ÑÕß
+            })
+            .Build();
 
         _workItemContext = new KafkaWorkItemContext(registry, new(options, loggerFactory));
         _topics = registry.GetSubscribedTopics(pubSubName).ToArray();
@@ -57,9 +77,9 @@ internal sealed class KafkaAtLeastOnceConsumer : ICloudEventSubscriber
     private Task _commitLoop = default!;
 
     /// <summary>
-    /// Æô¶¯Ïû·ÑÑ­»·ºÍÌá½»Ñ­»·
+    /// å¯åŠ¨æ¶ˆè´¹å¾ªç¯å’Œæäº¤å¾ªç¯ã€‚
     /// </summary>
-    /// <returns></returns>
+    /// <returns>å¼‚æ­¥ä»»åŠ¡</returns>
     public Task StartAsync()
     {
         if (_topics.Any())
@@ -72,9 +92,9 @@ internal sealed class KafkaAtLeastOnceConsumer : ICloudEventSubscriber
     }
 
     /// <summary>
-    /// È¡ÏûÏû·ÑÑ­»·ºÍÌá½»Ñ­»·£¬²¢¹Ø±ÕÏû·ÑÕß¡£
+    /// åœæ­¢æ¶ˆè´¹å’Œæäº¤å¾ªç¯ï¼Œå¹¶ä¼˜é›…å…³é—­ã€‚
     /// </summary>
-    /// <returns></returns>
+    /// <returns>å¼‚æ­¥ä»»åŠ¡</returns>
     public async Task StopAsync()
     {
         if (_topics.Any())
@@ -90,25 +110,24 @@ internal sealed class KafkaAtLeastOnceConsumer : ICloudEventSubscriber
     }
 
     /// <summary>
-    /// Ïû·ÑÑ­»·
+    /// æ¶ˆè´¹å¾ªç¯ã€‚
+    /// æŒç»­ä» Kafka æ‹‰å–æ¶ˆæ¯ï¼Œå¹¶åˆ†å‘åˆ°å¯¹åº”çš„åˆ†åŒºé€šé“ã€‚
     /// </summary>
     private void ConsumeLoop()
     {
         _logger.LogDebug("Consume loop started");
-        // ³ÖĞøÏû·ÑÏûÏ¢£¬Ö±µ½È¡ÏûÁîÅÆ±»ÇëÇó
         while (!_stopTokenSource.Token.IsCancellationRequested)
         {
             try
             {
                 ConsumeResult<byte[], byte[]> consumeResult = _consumer.Consume(_stopTokenSource.Token);
-                //¼ì²éÊÇ·ñµ½´ïÁË·ÖÇøµÄÄ©Î²¡£Èç¹ûµ½´ïÁË·ÖÇøµÄÄ©Î²£¬ËµÃ÷¸Ã·ÖÇøµ±Ç°Ã»ÓĞ¸ü¶àµÄÏûÏ¢£¬Í¬ÑùÌø¹ıºóĞø´¦Àí£¬¼ÌĞøÏÂÒ»´ÎÑ­»·
                 if (consumeResult == null || consumeResult.IsPartitionEOF)
                 {
                     continue;
                 }
                 _logger.LogDebug("Fetched message {offset}", consumeResult.TopicPartitionOffset);
 
-                // Ïû·ÑÏûÏ¢ºó£¬½«ÏûÏ¢·ÖÅÉµ½ÏàÓ¦µÄÍ¨µÀ
+                // å°†æ¶ˆæ¯åˆ†å‘åˆ°å¯¹åº”çš„åˆ†åŒºé€šé“
                 var channel = _channels[consumeResult.TopicPartition];
                 channel.DispatchMessage(consumeResult);
             }
@@ -122,11 +141,12 @@ internal sealed class KafkaAtLeastOnceConsumer : ICloudEventSubscriber
     }
 
     /// <summary>
-    /// ¸ù¾İ·ÖÅäµÄ·ÖÇø¸üĞÂÍ¨µÀ×Öµä
+    /// æ ¹æ®åˆ†åŒºåˆ†é…ç»“æœï¼Œæ›´æ–°æ¶ˆæ¯é€šé“ã€‚
     /// </summary>
-    /// <param name="topicPartitions"></param>
+    /// <param name="topicPartitions">åˆ†é…åˆ°çš„åˆ†åŒº</param>
     private void UpdateChannels(List<TopicPartition> topicPartitions)
     {
+        // ä¸ºæ–°åˆ†é…çš„åˆ†åŒºåˆ›å»ºé€šé“
         foreach (var topicPartition in topicPartitions)
         {
             if (!_channels.TryGetValue(topicPartition, out var _))
@@ -135,6 +155,7 @@ internal sealed class KafkaAtLeastOnceConsumer : ICloudEventSubscriber
             }
         }
 
+        // åœæ­¢å¹¶ç§»é™¤å·²ä¸¢å¤±çš„åˆ†åŒºé€šé“
         var channelsToStopped = new List<KafkaMessageChannel>();
         foreach (var (tp, channel) in _channels.Where(kvp => !topicPartitions.Contains(kvp.Key)))
         {
@@ -142,8 +163,7 @@ internal sealed class KafkaAtLeastOnceConsumer : ICloudEventSubscriber
             channelsToStopped.Add(channel);
         }
 
-        // Èç¹û·ÖÇø²»ÔÙ·ÖÅä£¬ÔòÍ£Ö¹ÏàÓ¦µÄÍ¨µÀ²¢Ìá½»Æ«ÒÆÁ¿
-        // wait all pending messages checked
+        // ä¼˜é›…åœæ­¢å¹¶æäº¤æ—§é€šé“çš„åç§»é‡
         Task.WhenAll(channelsToStopped.Select(ch => ch.StopAsync())).GetAwaiter().GetResult();
         CommitOffsets(channelsToStopped);
 
@@ -166,9 +186,10 @@ internal sealed class KafkaAtLeastOnceConsumer : ICloudEventSubscriber
     }
 
     /// <summary>
-    /// ¶¨ÆÚÌá½»Æ«ÒÆÁ¿£¬Ö±µ½È¡ÏûÁîÅÆ±»ÇëÇó
+    /// æäº¤å¾ªç¯ã€‚
+    /// å®šæœŸæäº¤æ‰€æœ‰é€šé“çš„åç§»é‡ã€‚
     /// </summary>
-    /// <returns></returns>
+    /// <returns>å¼‚æ­¥ä»»åŠ¡</returns>
     private async Task CommitLoop()
     {
         _logger.LogDebug("Commit loop Started");
@@ -189,30 +210,24 @@ internal sealed class KafkaAtLeastOnceConsumer : ICloudEventSubscriber
     }
 
     /// <summary>
-    /// Ìá½»Í¨µÀÖĞµÄÆ«ÒÆÁ¿
+    /// æäº¤æ‰€æœ‰é€šé“çš„åç§»é‡ã€‚
     /// </summary>
     private void CommitOffsets() => CommitOffsets(_channels.Values);
 
     /// <summary>
-    /// Ìá½»Í¨µÀÖĞµÄÆ«ÒÆÁ¿
+    /// æäº¤æŒ‡å®šé€šé“çš„åç§»é‡ã€‚
     /// </summary>
-    /// <param name="channels"></param>
+    /// <param name="channels">è¦æäº¤çš„é€šé“åˆ—è¡¨</param>
     private void CommitOffsets(IEnumerable<KafkaMessageChannel> channels)
     {
-        try
+        var offsetsToCommit = channels.Select(ch => ch.Reader.Offset)
+                .Where(offset => offset is not null)
+                .Select(offset => offset!)
+                .ToList();
+        if (offsetsToCommit.Any())
         {
-            var offsets = channels
-                .Where(ch => ch.Reader.Offset != null)
-                .Select(ch => ch.Reader.Offset)
-                .Select(offset => new TopicPartitionOffset(offset!.TopicPartition, offset.Offset + 1))
-                .ToArray();
-            _consumer.Commit(offsets);
-            _logger.LogDebug("Committed offsets: {offsets}", offsets);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error on commit offsets");
-            throw;
+            _logger.LogDebug("Committing offsets: {offsets}", offsetsToCommit);
+            _consumer.Commit(offsetsToCommit);
         }
     }
 }

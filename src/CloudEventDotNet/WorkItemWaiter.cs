@@ -1,41 +1,41 @@
-using System.Threading.Tasks.Sources;
+ï»¿using System.Threading.Tasks.Sources;
 
 namespace CloudEventDotNet;
 
 /// <summary>
-/// ¸Ã WorkItemWaiter ÀàµÄÖ÷Òª¹¦ÄÜÊÇÌá¹©Ò»ÖÖÊÖ¶¯¿ØÖÆÒì²½ÈÎÎñÍê³ÉµÄ»úÖÆ¡£
-/// Í¨¹ıÊµÏÖ IValueTaskSource ½Ó¿Ú£¬¸ÃÀàÔÊĞíÓÃ»§ÊÖ¶¯¿ØÖÆÈÎÎñ£¨ValueTask£©µÄÍê³É¡¢×´Ì¬¼ì²éºÍ»Øµ÷×¢²á¡£
-/// ÕâÔÚĞèÒªÊÖ¶¯´¥·¢Òì²½²Ù×÷Íê³ÉµÄ³¡¾°ÖĞ·Ç³£ÓĞÓÃ¡£
-/// Ò»¸ö¿ÉÒÔ½«Í¬²½ÈÎÎñ¡¢²»Í¬Ïß³ÌÍ¬²½²Ù×÷£¬Í¨¹ı×´Ì¬»ú¹¹½¨Òì²½·½·¨
+/// è¯¥ WorkItemWaiter ç±»çš„ä¸»è¦åŠŸèƒ½æ˜¯æä¾›ä¸€ç§æ‰‹åŠ¨æ§åˆ¶å¼‚æ­¥ä»»åŠ¡å®Œæˆçš„æœºåˆ¶ã€‚
+/// é€šè¿‡å®ç° IValueTaskSource æ¥å£ï¼Œè¯¥ç±»å…è®¸ç”¨æˆ·æ‰‹åŠ¨æ§åˆ¶ä»»åŠ¡ï¼ˆValueTaskï¼‰çš„å®Œæˆã€çŠ¶æ€æ£€æŸ¥å’Œå›è°ƒæ³¨å†Œã€‚
+/// è¿™åœ¨éœ€è¦æ‰‹åŠ¨è§¦å‘å¼‚æ­¥æ“ä½œå®Œæˆçš„åœºæ™¯ä¸­éå¸¸æœ‰ç”¨ã€‚
+/// ä¸€ä¸ªå¯ä»¥å°†åŒæ­¥ä»»åŠ¡ã€ä¸åŒçº¿ç¨‹åŒæ­¥æ“ä½œï¼Œé€šè¿‡çŠ¶æ€æœºæ„å»ºå¼‚æ­¥æ–¹æ³•
 /// </summary>
-internal class WorkItemWaiter : IValueTaskSource //IValueTaskSource ½Ó¿Ú£¬ÕâÊÇÒ»¸öÓÃÓÚ×Ô¶¨Òå ValueTask ĞĞÎªµÄ½Ó¿Ú
+internal class WorkItemWaiter : IValueTaskSource //IValueTaskSource æ¥å£ï¼Œè¿™æ˜¯ä¸€ä¸ªç”¨äºè‡ªå®šä¹‰ ValueTask è¡Œä¸ºçš„æ¥å£
 {
-    //ManualResetValueTaskSourceCore ÊÇÒ»¸ö½á¹¹Ìå£¬Ìá¹©ÁËÒ»ÖÖÊÖ¶¯¿ØÖÆ ValueTask Íê³ÉµÄ»úÖÆ
-    //ManualResetValueTaskSourceCore ÊµÏÖÁËIValueTaskSource½Ó¿Ú£¬²¢Ìá¹©ÁËÒ»Ğ©·½·¨À´¿ØÖÆ ValueTask µÄ×´Ì¬¡¢½á¹û¡¢»Øµ÷µÈ¡£
+    //ManualResetValueTaskSourceCore æ˜¯ä¸€ä¸ªç»“æ„ä½“ï¼Œæä¾›äº†ä¸€ç§æ‰‹åŠ¨æ§åˆ¶ ValueTask å®Œæˆçš„æœºåˆ¶
+    //ManualResetValueTaskSourceCore å®ç°äº†IValueTaskSourceæ¥å£ï¼Œå¹¶æä¾›äº†ä¸€äº›æ–¹æ³•æ¥æ§åˆ¶ ValueTask çš„çŠ¶æ€ã€ç»“æœã€å›è°ƒç­‰ã€‚
     private ManualResetValueTaskSourceCore<bool> _tcs;
 
-    //Õâ¸ö·½·¨»áÔÚÈÎÎñÍê³ÉÊ±Å×³öÒì³£»ò·µ»Ø½á¹û
-    //ÊµÏÖ½Ó¿Ú£¬¸æËßµ÷ÓÃÕß£¬ÈÎÎñÊÇ·ñÒÑ¾­Íê³É£¬ÒÔ¼°ÊÇ·ñÓĞ½á¹û£¬ÊÇ·ñÓĞÒì³£µÈ
+    //è¿™ä¸ªæ–¹æ³•ä¼šåœ¨ä»»åŠ¡å®Œæˆæ—¶æŠ›å‡ºå¼‚å¸¸æˆ–è¿”å›ç»“æœ
+    //å®ç°æ¥å£ï¼Œå‘Šè¯‰è°ƒç”¨è€…ï¼Œä»»åŠ¡æ˜¯å¦å·²ç»å®Œæˆï¼Œä»¥åŠæ˜¯å¦æœ‰ç»“æœï¼Œæ˜¯å¦æœ‰å¼‚å¸¸ç­‰
     public void GetResult(short token) => _tcs.GetResult(token);
 
-    //»ñÈ¡ÈÎÎñµÄµ±Ç°×´Ì¬
-    // Canceled  3 ²Ù×÷ÒòÈ¡Ïû²Ù×÷¶øÍê³É¡£
-    // Faulted   2 ²Ù×÷ÒÑÍê³Éµ«ÓĞ´íÎó¡£
-    // Pending   0 ²Ù×÷ÉĞÎ´Íê³É¡£
-    // Succeeded 1 ²Ù×÷ÒÑ³É¹¦Íê³É¡£
+    //è·å–ä»»åŠ¡çš„å½“å‰çŠ¶æ€
+    // Canceled  3 æ“ä½œå› å–æ¶ˆæ“ä½œè€Œå®Œæˆã€‚
+    // Faulted   2 æ“ä½œå·²å®Œæˆä½†æœ‰é”™è¯¯ã€‚
+    // Pending   0 æ“ä½œå°šæœªå®Œæˆã€‚
+    // Succeeded 1 æ“ä½œå·²æˆåŠŸå®Œæˆã€‚
     public ValueTaskSourceStatus GetStatus(short token) => _tcs.GetStatus(token);
 
-    //½ÓÊÜÒ»¸ö»Øµ÷·½·¨ continuation¡¢Ò»¸ö×´Ì¬¶ÔÏó state¡¢Ò»¸ö¶ÌÕûÊı token ºÍÒ»¸ö ValueTaskSourceOnCompletedFlags Ã¶¾ÙÖµ flags¡£Õâ¸ö·½·¨ÓÃÀ´×¢²áµ±ÈÎÎñÍê³ÉÊ±ÒªÖ´ĞĞµÄ»Øµ÷
-    //ÊµÏÖÑÓĞø
+    //æ¥å—ä¸€ä¸ªå›è°ƒæ–¹æ³• continuationã€ä¸€ä¸ªçŠ¶æ€å¯¹è±¡ stateã€ä¸€ä¸ªçŸ­æ•´æ•° token å’Œä¸€ä¸ª ValueTaskSourceOnCompletedFlags æšä¸¾å€¼ flagsã€‚è¿™ä¸ªæ–¹æ³•ç”¨æ¥æ³¨å†Œå½“ä»»åŠ¡å®Œæˆæ—¶è¦æ‰§è¡Œçš„å›è°ƒ
+    //å®ç°å»¶ç»­
     public void OnCompleted(
         Action<object?> continuation,
         object? state,
         short token,
         ValueTaskSourceOnCompletedFlags flags)
         => _tcs.OnCompleted(continuation, state, token, flags);
-    //ÊµÏÖ×´Ì¬»ú£¬ÄÜ¹»¿ØÖÆ´ËÈÎÎñÊÇ·ñÒÑ¾­Íê³É£¬ÒÔ¼°ÊÇ·ñÓĞÒì³£
+    //å®ç°çŠ¶æ€æœºï¼Œèƒ½å¤Ÿæ§åˆ¶æ­¤ä»»åŠ¡æ˜¯å¦å·²ç»å®Œæˆï¼Œä»¥åŠæ˜¯å¦æœ‰å¼‚å¸¸
     public void SetResult() => _tcs.SetResult(true);
 
-    //¸ÃÈÎÎñÓëµ±Ç° WorkItemWaiter ¹ØÁª£¬²¢ÇÒÊ¹ÓÃ _tcs µÄ°æ±¾ºÅ
+    //è¯¥ä»»åŠ¡ä¸å½“å‰ WorkItemWaiter å…³è”ï¼Œå¹¶ä¸”ä½¿ç”¨ _tcs çš„ç‰ˆæœ¬å·
     public ValueTask Task => new(this, _tcs.Version);
 }
