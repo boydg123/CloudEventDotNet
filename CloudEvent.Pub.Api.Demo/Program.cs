@@ -1,4 +1,4 @@
-using CloudEvent.Pub.Api.Demo.CloudEvent;
+﻿using CloudEvent.Pub.Api.Demo.CloudEvent;
 using CloudEventDotNet;
 using Confluent.Kafka;
 
@@ -11,11 +11,11 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new() { Title = "CloudEvent.Pub.Api.Demo", Version = "v1" });
 });
 
-builder.Services.AddCloudEvents(defaultPubSubName: "kafka", defaultTopic: "derrick").Load(typeof(AddWorkWxEvent).Assembly).AddKafkaPubSub("kafka", options =>
+builder.Services.AddCloudEvents(defaultPubSubName: "kafka1", defaultTopic: "derrick").Load(typeof(AddWorkWxEvent).Assembly).AddKafkaPubSub("kafka1", options =>
 {
     options.ProducerConfig = new Confluent.Kafka.ProducerConfig
     {
-        BootstrapServers = "localhost:9092",
+        BootstrapServers = "host.docker.internal:9092",
         Acks = Confluent.Kafka.Acks.Leader,
         LingerMs = 10
     };

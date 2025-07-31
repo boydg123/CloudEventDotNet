@@ -5,7 +5,7 @@ namespace CloudEventKafkaTester
 {
     internal static class KafkaEnv
     {
-        public static string broker { get; set; } = Environment.GetEnvironmentVariable("KAFKA_BROKER") ?? "42.121.98.227:9092";
+        public static string broker { get; set; } = Environment.GetEnvironmentVariable("KAFKA_BROKER") ?? "localhost:9092";
 
         public static string topic { get; set; } = Environment.GetEnvironmentVariable("KAFKA_TOPIC") ?? "devperftest";
 

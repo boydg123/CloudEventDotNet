@@ -29,6 +29,7 @@ public abstract class Tester
 
     private void ConfigureKafka()
     {
+        var broker = KafkaEnv.broker;
         var builder = Services.AddCloudEvents(defaultPubSubName: "kafka", defaultTopic: KafkaEnv.topic)
             .Load(typeof(Ping).Assembly);
         builder.AddKafkaPubSub("kafka", options =>
